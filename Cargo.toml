@@ -1,0 +1,38 @@
+[package]
+name = "evogym-labs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+
+[lib]
+name = "evogym_labs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "evogym-labs"
+path = "src/main.rs"
+
+[features]
+default = ["gui"]
+# Set `default-features = false` and disable the `gui` feature to build
+# a pure headless binary that does not depend on eframe/winit/wgpu.
+gui = ["dep:eframe", "dep:egui"]
+# Integration tests live under tests/ and only compile when this feature is on
+# (they shell out to ffmpeg / ffprobe and take a few seconds).
+integration = []
+
+[dependencies]
+ab_glyph        = { version = "0.2.32", default-features = false, features = ["std"] }
+clap            = { version = "4.5", features = ["derive"] }
+rayon           = "1.10"
+rand            = "0.9"
+thiserror       = "1.0"
+
+# GUI only — never touched by `--headless`.
+eframe = { version = "0.32", optional = true, default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui   = { version = "0.32", optional = true }
+
+[profile.release]
+opt-level = 3
+lto       = "thin"
+codegen-units = 1
