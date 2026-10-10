@@ -78,7 +78,7 @@ impl FrameBuffer {
     }
 
     pub fn clear(&mut self, colour: Rgb) {
-        for chunk in self.rgb.chunks_exact_mut(3) {
+        for chunk in self.rgb.as_chunks_mut::<3>().0 {
             chunk[0] = colour.0;
             chunk[1] = colour.1;
             chunk[2] = colour.2;
@@ -432,7 +432,7 @@ mod tests {
         render_world(&mut fb, &cam, &world, &[]);
         let _ = save_ppm("/tmp/evogym_test_render.ppm", &fb);
         let mut has_robot = false;
-        for chunk in fb.rgb.chunks_exact(3) {
+        for chunk in fb.rgb.as_chunks::<3>().0 {
             let r = chunk[0];
             let g = chunk[1];
             let b = chunk[2];
@@ -583,7 +583,7 @@ mod tests {
         cam.follow(com.x, com.y, 1.0);
         render_world(&mut fb, &cam, &world, &[]);
         let mut found = false;
-        for chunk in fb.rgb.chunks_exact(3) {
+        for chunk in fb.rgb.as_chunks::<3>().0 {
             if chunk[0] == 12 && chunk[1] == 34 && chunk[2] == 200 {
                 found = true;
                 break;

@@ -1,6 +1,6 @@
 [package]
 name = "evogym-labs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.95"
 description = "2D soft-voxel robot evolution simulator with hand-rolled spring physics, a genetic algorithm, a software rasterizer and a headless video pipeline."
