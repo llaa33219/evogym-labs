@@ -1,0 +1,68 @@
+name: Publish to crates.io
+
+# Tag-triggered release:
+#   cargo set-version X.Y.Z && git commit -am "release: vX.Y.Z"
+#   git tag vX.Y.Z && git push origin main --tags
+#
+# Uses Trusted Publishing (OIDC) — there is no crates.io API token in this
+# repo and none is needed. `rust-lang/crates-io-auth-action` exchanges the
+# GitHub OIDC token for a short-lived crates.io token (30 min) and revokes
+# it in its post step.
+#
+# The workflow FILENAME is part of the trust match. Whatever you enter on
+# crates.io (crate → Settings → Trusted Publishing → Add → GitHub →
+# "Workflow filename") must be exactly `publish.yml`.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # NOTE: if you add a GitHub Environment here, you MUST enter the same
+    # name in the crates.io Trusted Publishing config, or the OIDC exchange
+    # fails with "...requires an environment, but the JWT does not specify one".
+    permissions:
+      contents: read
+      id-token: write   # required for the OIDC token exchange
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust
+        # Pin explicitly rather than trusting the runner image, so the tool
+        # that builds the released artifact is not whatever `ubuntu-latest`
+        # happens to ship this week.
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Verify the tag matches Cargo.toml
+        # Trusted Publishing does not check this. Publishing a version that
+        # already exists fails, and the version is immutable, so catch a
+        # forgotten `cargo set-version` here rather than at the upload.
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          # Scope to the [package] table: a bare `grep '^version'` would pick
+          # up a `[workspace] version` or a `[dependencies]` entry instead.
+          CRATE_VERSION="$(awk '/^\[/{inpkg=($0=="[package]")} inpkg && /^version[[:space:]]*=/{gsub(/"/,"",$3); print $3; exit}' Cargo.toml)"
+          if [ -z "$CRATE_VERSION" ]; then
+            echo "::error::could not read version from [package] in Cargo.toml"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$CRATE_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $CRATE_VERSION"
+            exit 1
+          fi
+          echo "Publishing $CRATE_VERSION"
+
+      - name: Verify the crate packages cleanly
+        run: cargo publish --dry-run --locked
+
+      - name: Exchange OIDC token for a crates.io token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

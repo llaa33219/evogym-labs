@@ -186,10 +186,58 @@ modulates. Multiple actuators on the same spring sum their contributions.
 |---------|-------|
 | `cargo build --release` | GUI + CLI both linked |
 | `cargo build --release --no-default-features` | CLI only, no `eframe` / `winit` / `wgpu` |
-| `cargo test --release --all-features` | All 35 unit tests + integration test |
+| `cargo test --release --all-features` | All 56 unit tests + integration test |
 | `cargo clippy --release --all-features --tests --lib --bins -- -D warnings` | Clean |
-| `cargo test --release --no-default-features` | 35 unit tests (no integration) |
+| `cargo test --release --no-default-features` | 56 unit tests (no integration) |
 | `cargo test --release --features integration --test integration` | Integration smoke test |
+
+## Releasing
+
+Releases are tag-driven: `git tag vX.Y.Z && git push origin vX.Y.Z` and
+GitHub Actions publishes to crates.io. **The tag must match the `version`
+field in `Cargo.toml`** — the workflow fails loudly if it does not.
+
+```console
+$ cargo set-version 0.2.0
+$ git commit -am "release: v0.2.0"
+$ git tag v0.2.0
+$ git push origin main --tags
+```
+
+### Trusted Publishing
+
+The publish workflow uses [crates.io Trusted
+Publishing](https://crates.io/docs/trusted-publishing): GitHub's OIDC
+identity is exchanged for a 30-minute crates.io token, so **no API token is
+stored in this repository**. The only secret involved is GitHub's own OIDC
+mechanism.
+
+One-time setup, per crate, in the crates.io web UI — crate →
+**Settings → Trusted Publishing → Add → GitHub**:
+
+| Field | Value |
+|-------|-------|
+| Repository owner | `llaa33219` |
+| Repository name | `evogym-labs` |
+| Workflow filename | `publish.yml` |
+| Environment | *(leave empty)* |
+
+The workflow filename is part of the trust match — if you rename
+`publish.yml`, update this field too.
+
+Two caveats worth knowing:
+
+- **The first publish cannot use Trusted Publishing.** crates.io rejects it
+  outright ("Trusted Publishing tokens do not support creating new
+  crates"), because a trusted-publisher config is keyed to an
+  already-existing crate. Publishing `v0.1.0` therefore requires a one-time
+  manual `cargo login` + `cargo publish` with a `publish-new`-scoped token.
+  After that, every release is tokenless.
+- **Trusted Publishing cannot yank.** If a bad version goes out, yank it
+  from a machine with a real token (`cargo yank`); CI cannot do it.
+
+Workflows: `.github/workflows/ci.yml` (fmt / clippy / test / doc / package on
+every push and PR) and `.github/workflows/publish.yml` (tag → crates.io).
 
 ## Known limitations
 
@@ -206,6 +254,7 @@ modulates. Multiple actuators on the same spring sum their contributions.
 - `concat -c copy` is not used for stitching clips; we re-encode at the
   concat step. This guarantees frame-accurate PTS and avoids the class of
   failure where `-c copy` produces inconsistent output across clips.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).

@@ -3,6 +3,20 @@ name = "evogym-labs"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
+description = "2D soft-voxel robot evolution simulator with hand-rolled spring physics, a genetic algorithm, a software rasterizer and a headless video pipeline."
+license = "Apache-2.0"
+repository = "https://github.com/llaa33219/evogym-labs"
+homepage = "https://github.com/llaa33219/evogym-labs"
+readme = "README.md"
+keywords = ["physics", "simulation", "robotics", "genetic-algorithms", "soft-body"]
+categories = ["simulation", "science", "gui", "command-line-utilities", "visualization"]
+exclude = [
+    # `evogym` is a stray 10.5 MB PostScript artifact in the repo root; it is
+    # untracked and gitignored, but without this it would still be packaged.
+    "evogym",
+    # CI config is useful in the repo, not to consumers of the crate.
+    "/.github",
+]
 
 [lib]
 name = "evogym_labs"

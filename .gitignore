@@ -2,3 +2,5 @@
 **/*.rs.bk
 *.ppm
 .omo/
+/evogym
+.miniouto/

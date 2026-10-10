@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: check (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # `all` builds the eframe GUI; `none` proves the headless path
+          # links without eframe / winit / wgpu.
+          - name: gui
+            clippy: --all-features --tests --lib --bins
+            test: --all-features
+          - name: headless
+            clippy: --no-default-features --tests --lib --bins
+            test: --no-default-features
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install ffmpeg
+        # video::tests asserts ffmpeg is on PATH; the integration test also
+        # probes ffprobe. Neither is preinstalled on the runner image.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --release ${{ matrix.clippy }} -- -D warnings
+
+      - name: test
+        run: cargo test --release ${{ matrix.test }}
+
+  doc:
+    name: doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: rustdoc
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify the crate packages and builds as published
+        # Catches the packaging problems CI cannot otherwise see: a stray
+        # artifact inflating the tarball, missing manifest metadata, or a
+        # feature that builds locally but not from the .crate.
+        run: cargo publish --dry-run --locked
