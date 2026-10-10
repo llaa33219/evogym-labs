@@ -123,8 +123,12 @@ fn bitmap_index(b: u8) -> Option<usize> {
         b'!' => Some(1),
         b'0'..=b'9' => Some(2 + (b - b'0') as usize),
         b':' => Some(12),
+        // Subtract each range's own base. The table holds uppercase glyphs
+        // only, so lowercase letters index onto the same uppercase shapes —
+        // deliberately, since there are no lowercase bitmaps. Using 'A' as
+        // the base for 'a'..='z' yields 45..=70 and reads out of bounds.
         b'A'..=b'Z' => Some(13 + (b - b'A') as usize),
-        b'a'..=b'z' => Some(13 + (b - b'A') as usize),
+        b'a'..=b'z' => Some(13 + (b - b'a') as usize),
         _ => None,
     }
 }
@@ -224,3 +228,38 @@ pub fn draw_overlay(fb: &mut FrameBuffer, generation: usize, fit: f32, is_final:
 // the overlay would lose its pixel-budget assertion.
 #[allow(dead_code)]
 const _FRAME_W_REF: usize = FRAME_W;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The bitmap fallback indexes `BITMAP` by a value derived from the
+    /// character code. Every printable ASCII character the overlay can emit
+    /// must land inside the table, in either direction.
+    ///
+    /// This was never covered: `draw_text` prefers the TTF path, so the
+    /// bitmap branch only runs on a machine with no Noto font installed —
+    /// which is exactly where the release CI runs.
+    #[test]
+    fn bitmap_index_is_in_bounds_for_all_printable_ascii() {
+        for b in 0x20u8..=0x7e {
+            if let Some(idx) = bitmap_index(b) {
+                assert!(
+                    idx < BITMAP.len(),
+                    "glyph {:?} maps to index {idx}, but BITMAP has {} entries",
+                    b as char,
+                    BITMAP.len()
+                );
+            }
+        }
+    }
+
+    /// Lowercase has no bitmap of its own, so it reuses the uppercase shape.
+    /// Guard the shared-base arithmetic that used to read out of bounds.
+    #[test]
+    fn lowercase_and_uppercase_share_a_glyph() {
+        assert_eq!(bitmap_index(b'a'), bitmap_index(b'A'));
+        assert_eq!(bitmap_index(b'e'), bitmap_index(b'E'));
+        assert_eq!(bitmap_index(b'z'), bitmap_index(b'Z'));
+    }
+}
