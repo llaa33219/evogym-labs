@@ -38,8 +38,8 @@ use rayon::prelude::*;
 
 use crate::controller::{Controller, MutationParams as CtrlMutation};
 use crate::physics::World;
-use crate::tasks::{fitness as task_fitness, terrain_for, TaskKind};
-use crate::voxel::{validate, Cell, Morphology};
+use crate::tasks::{TaskKind, fitness as task_fitness, terrain_for};
+use crate::voxel::{Cell, Morphology, validate};
 
 /// Evolution mode — morphology mutates too, or stays fixed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,7 +101,9 @@ pub struct Genome {
 }
 
 impl Genome {
-    pub fn new(morph: Morphology, controller: Controller) -> Self { Self { morph, controller } }
+    pub fn new(morph: Morphology, controller: Controller) -> Self {
+        Self { morph, controller }
+    }
 
     /// Build a controller sized for this morphology.
     pub fn random_controller(&self, rng: &mut impl RngCore) -> Controller {
@@ -133,9 +135,20 @@ impl History {
 /// Progress events emitted by the GA, surfaced to the GUI via mpsc.
 #[derive(Debug, Clone)]
 pub enum Progress {
-    Started { total_gens: usize, pop: usize },
-    Generation { generation: usize, total: usize, best: f32, mean: f32 },
-    Done { generations: usize, best_overall: f32 },
+    Started {
+        total_gens: usize,
+        pop: usize,
+    },
+    Generation {
+        generation: usize,
+        total: usize,
+        best: f32,
+        mean: f32,
+    },
+    Done {
+        generations: usize,
+        best_overall: f32,
+    },
     Error(String),
 }
 
@@ -174,11 +187,13 @@ pub fn run(
         let base_ctrl = Controller::random(&mut *master, n_act);
         population.push(Genome::new(seed_morph.clone(), base_ctrl));
         while population.len() < cfg.population {
-            let mut child = Genome::new(seed_morph.clone(), Controller::random(&mut *master, n_act));
+            let mut child =
+                Genome::new(seed_morph.clone(), Controller::random(&mut *master, n_act));
             if cfg.mode == Mode::Full {
                 child.morph = mutate_morphology(&child.morph, cfg, &mut *master);
             }
-            child.controller = mutate_controller(child.controller.clone(), &child.morph, cfg, &mut *master);
+            child.controller =
+                mutate_controller(child.controller.clone(), &child.morph, cfg, &mut *master);
             // validate (controller-only: morph is seed_morph so still valid)
             if validate(&child.morph).is_err() {
                 child.morph = seed_morph.clone();
@@ -215,7 +230,10 @@ pub fn run(
                         world.substep(&offsets);
                         t += crate::physics::DT;
                     }
-                    if world.nan_seen { any_nan = true; break; }
+                    if world.nan_seen {
+                        any_nan = true;
+                        break;
+                    }
                 }
                 let final_com = world.com();
                 let fit = task_fitness(start_x, final_com.x, any_nan || world.nan_seen);
@@ -226,7 +244,12 @@ pub fn run(
         // Sort descending by fitness. (`fits[i].0` is the population index —
         // using it as the primary key silently ranks by index, not fitness.)
         let mut order: Vec<usize> = (0..population.len()).collect();
-        order.sort_by(|&a, &b| fits[b].1.partial_cmp(&fits[a].1).unwrap_or(std::cmp::Ordering::Equal));
+        order.sort_by(|&a, &b| {
+            fits[b]
+                .1
+                .partial_cmp(&fits[a].1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Record best
         let best_idx = order[0];
@@ -247,7 +270,9 @@ pub fn run(
             mean,
         });
 
-        if g + 1 == n_generations { break; }
+        if g + 1 == n_generations {
+            break;
+        }
 
         // Build next generation.
         let mut next: Vec<Genome> = Vec::with_capacity(cfg.population);
@@ -264,25 +289,38 @@ pub fn run(
             if cfg.mode == Mode::Full {
                 child.morph = mutate_morphology(&child.morph, cfg, &mut *master);
             }
-            child.controller = mutate_controller(child.controller.clone(), &child.morph, cfg, &mut *master);
+            child.controller =
+                mutate_controller(child.controller.clone(), &child.morph, cfg, &mut *master);
             // validate morphology; if invalid, fall back to parent A
             if validate(&child.morph).is_err() {
                 child.morph = parent_a.morph.clone();
-                child.controller = mutate_controller(parent_a.controller.clone(), &child.morph, cfg, &mut *master);
+                child.controller =
+                    mutate_controller(parent_a.controller.clone(), &child.morph, cfg, &mut *master);
             }
             next.push(child);
         }
         population = next;
     }
 
-    let best_overall = history.records.iter().map(|r| r.fitness).fold(f32::NEG_INFINITY, f32::max);
-    let best_overall = if best_overall.is_finite() { best_overall } else { 0.0 };
+    let best_overall = history
+        .records
+        .iter()
+        .map(|r| r.fitness)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let best_overall = if best_overall.is_finite() {
+        best_overall
+    } else {
+        0.0
+    };
     on_progress(Progress::Done {
         generations: n_generations,
         best_overall,
     });
 
-    EvolutionResult { history, best_fitness: best_overall }
+    EvolutionResult {
+        history,
+        best_fitness: best_overall,
+    }
 }
 
 fn tournament<R: Rng + ?Sized>(
@@ -295,7 +333,10 @@ fn tournament<R: Rng + ?Sized>(
     let mut best_fit = fits[best_idx].1;
     for _ in 1..size {
         let i = rng.random_range(0..pop.len());
-        if fits[i].1 > best_fit { best_fit = fits[i].1; best_idx = i; }
+        if fits[i].1 > best_fit {
+            best_fit = fits[i].1;
+            best_idx = i;
+        }
     }
     pop[best_idx].clone()
 }
@@ -309,7 +350,12 @@ fn uniform_crossover<R: Rng + ?Sized>(a: &Genome, b: &Genome, rng: &mut R) -> Ge
             colors[i] = b.morph.colors[i];
         }
     }
-    let morph = Morphology { w: a.morph.w, h: a.morph.h, cells, colors };
+    let morph = Morphology {
+        w: a.morph.w,
+        h: a.morph.h,
+        cells,
+        colors,
+    };
     let n_act_a = a.morph.actuators().len();
     let n_act_b = b.morph.actuators().len();
     let n = n_act_a.max(n_act_b);
@@ -325,12 +371,24 @@ fn uniform_crossover<R: Rng + ?Sized>(a: &Genome, b: &Genome, rng: &mut R) -> Ge
             amps[i] = b.controller.amps[i];
         }
     }
-    let freq = if rng.random::<f32>() < 0.5 { a.controller.freq_hz } else { b.controller.freq_hz };
-    let controller = Controller { freq_hz: freq, phases, amps };
+    let freq = if rng.random::<f32>() < 0.5 {
+        a.controller.freq_hz
+    } else {
+        b.controller.freq_hz
+    };
+    let controller = Controller {
+        freq_hz: freq,
+        phases,
+        amps,
+    };
     Genome::new(morph, controller)
 }
 
-fn mutate_morphology<R: Rng + ?Sized>(parent: &Morphology, cfg: &EvolutionConfig, rng: &mut R) -> Morphology {
+fn mutate_morphology<R: Rng + ?Sized>(
+    parent: &Morphology,
+    cfg: &EvolutionConfig,
+    rng: &mut R,
+) -> Morphology {
     let mut m = parent.clone();
     for _ in 0..cfg.morph_mutations_per_child.max(1) {
         let r: f32 = rng.random();
@@ -381,7 +439,9 @@ fn mutate_morphology<R: Rng + ?Sized>(parent: &Morphology, cfg: &EvolutionConfig
 /// colour exists. Cells that became Empty drop their override.
 fn recolour_changed_cells<R: Rng + ?Sized>(parent: &Morphology, m: &mut Morphology, rng: &mut R) {
     for i in 0..m.cells.len() {
-        if m.cells[i] == parent.cells[i] { continue; }
+        if m.cells[i] == parent.cells[i] {
+            continue;
+        }
         if !m.cells[i].is_solid() {
             m.colors[i] = None;
             continue;

@@ -28,7 +28,9 @@ fn ga_runs_two_generations_and_records_best() {
     let mut any_improve = false;
     let result = run(&cfg, tiny_demo_morph(), 2, Some(42), |p| {
         if let Progress::Generation { best, .. } = p {
-            if best > last_best { any_improve = true; }
+            if best > last_best {
+                any_improve = true;
+            }
             last_best = last_best.max(best);
         }
     });
@@ -87,7 +89,10 @@ fn mutated_cells_get_a_sibling_colour_variant() {
         let child = mutate_morphology(&parent, &cfg, &mut rng);
         for i in 0..child.cells.len() {
             if child.cells[i] == parent.cells[i] {
-                assert_eq!(child.colors[i], parent.colors[i], "unchanged cell must keep its colour");
+                assert_eq!(
+                    child.colors[i], parent.colors[i],
+                    "unchanged cell must keep its colour"
+                );
                 continue;
             }
             if !child.cells[i].is_solid() {
@@ -96,9 +101,9 @@ fn mutated_cells_get_a_sibling_colour_variant() {
             }
             if let Some(c) = child.colors[i] {
                 let pool: [[u8; 3]; 2] = [[100, 150, 200], [50, 60, 70]];
-                let ok = pool.iter().any(|base| {
-                    (0..3).all(|k| (c[k] as i32 - base[k] as i32).abs() <= 20)
-                });
+                let ok = pool
+                    .iter()
+                    .any(|base| (0..3).all(|k| (c[k] as i32 - base[k] as i32).abs() <= 20));
                 assert!(ok, "changed cell colour {c:?} is not a sibling variant");
             }
         }

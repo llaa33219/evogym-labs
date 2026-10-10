@@ -36,7 +36,11 @@ impl Controller {
             phases.push(rng.random_range(0.0..std::f32::consts::TAU));
             amps.push(rng.random_range(AMP_MIN..=AMP_MAX));
         }
-        Self { freq_hz, phases, amps }
+        Self {
+            freq_hz,
+            phases,
+            amps,
+        }
     }
 
     /// All-zeros controller: every actuator fully contracted (ΔL = 0). Useful
@@ -56,7 +60,10 @@ impl Controller {
         self.phases.resize(new_n, 0.0);
         self.amps.resize(new_n, 0.0);
         for i in 0..new_n {
-            if i >= self.phases.len().saturating_sub(new_n) && self.phases[i] == 0.0 && self.amps[i] == 0.0 {
+            if i >= self.phases.len().saturating_sub(new_n)
+                && self.phases[i] == 0.0
+                && self.amps[i] == 0.0
+            {
                 self.phases[i] = rng.random_range(0.0..std::f32::consts::TAU);
                 self.amps[i] = rng.random_range(AMP_MIN..=AMP_MAX);
             }
@@ -91,7 +98,9 @@ impl Controller {
         for amp in self.amps.iter_mut() {
             *amp += rng.random::<f32>() * 2.0 * p.sigma_amp - p.sigma_amp;
             *amp = amp.clamp(0.0, AMP_MAX);
-            if *amp < AMP_MIN { *amp = AMP_MIN; } // re-floored
+            if *amp < AMP_MIN {
+                *amp = AMP_MIN;
+            } // re-floored
         }
     }
 }
@@ -105,7 +114,11 @@ pub struct MutationParams {
 
 impl Default for MutationParams {
     fn default() -> Self {
-        Self { sigma_freq: 0.2, sigma_phase: 0.4, sigma_amp: 0.05 }
+        Self {
+            sigma_freq: 0.2,
+            sigma_phase: 0.4,
+            sigma_amp: 0.05,
+        }
     }
 }
 
@@ -133,13 +146,19 @@ mod tests {
 
     #[test]
     fn delta_l_is_bounded() {
-        let c = Controller { freq_hz: 2.0, phases: vec![0.0], amps: vec![0.3] };
+        let c = Controller {
+            freq_hz: 2.0,
+            phases: vec![0.0],
+            amps: vec![0.3],
+        };
         let mut max_abs = 0.0;
         for k in 0..1000 {
             let t = k as f32 * 0.001;
             let d = c.delta_l(0, t);
             assert!(d.abs() <= 0.3001, "delta_l out of amp range: {d}");
-            if d.abs() > max_abs { max_abs = d.abs(); }
+            if d.abs() > max_abs {
+                max_abs = d.abs();
+            }
         }
         assert!(max_abs > 0.25, "amplitude never reached near max");
     }
@@ -151,8 +170,12 @@ mod tests {
         for _ in 0..200 {
             c.mutate(&mut rng, MutationParams::default());
             assert!(c.freq_hz >= FREQ_MIN && c.freq_hz <= FREQ_MAX);
-            for &a in &c.amps { assert!((AMP_MIN - 1e-4..=AMP_MAX + 1e-4).contains(&a)); }
-            for &p in &c.phases { assert!((0.0..=std::f32::consts::TAU + 1e-3).contains(&p)); }
+            for &a in &c.amps {
+                assert!((AMP_MIN - 1e-4..=AMP_MAX + 1e-4).contains(&a));
+            }
+            for &p in &c.phases {
+                assert!((0.0..=std::f32::consts::TAU + 1e-3).contains(&p));
+            }
         }
     }
 }

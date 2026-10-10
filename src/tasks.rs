@@ -72,7 +72,10 @@ pub fn terrain_for(kind: TaskKind, morph_size: (u8, u8)) -> (Ground, Vec<Obstacl
         ),
         TaskKind::Slope45 => (Ground::Slope { rate: 1.0 }, Vec::new()),
         TaskKind::Stairs => (
-            Ground::Stairs { run: w.max(1) as f32, rise: (h / 2).max(1) as f32 },
+            Ground::Stairs {
+                run: w.max(1) as f32,
+                rise: (h / 2).max(1) as f32,
+            },
             Vec::new(),
         ),
         TaskKind::Obstacles => (Ground::Flat, random_obstacles(w as f32 + 1.0, h)),
@@ -82,7 +85,13 @@ pub fn terrain_for(kind: TaskKind, morph_size: (u8, u8)) -> (Ground, Vec<Obstacl
             // A plain h² amplitude makes a mountain the camera never gets
             // past the toe of.
             let amp = (h as f32) * (h as f32) / 4.0;
-            (Ground::Hills { amp, wavelength: 8.0 * amp }, Vec::new())
+            (
+                Ground::Hills {
+                    amp,
+                    wavelength: 8.0 * amp,
+                },
+                Vec::new(),
+            )
         }
     }
 }
@@ -142,8 +151,14 @@ mod tests {
     #[test]
     fn ground_profiles_match_spec() {
         let (slope, _) = terrain_for(TaskKind::Slope45, (5, 5));
-        assert!((slope.height(2.5) - 2.5).abs() < 1e-4, "45° everywhere, no flat shelf");
-        assert!((slope.height(-4.0) - (-4.0)).abs() < 1e-4, "continues behind spawn");
+        assert!(
+            (slope.height(2.5) - 2.5).abs() < 1e-4,
+            "45° everywhere, no flat shelf"
+        );
+        assert!(
+            (slope.height(-4.0) - (-4.0)).abs() < 1e-4,
+            "continues behind spawn"
+        );
 
         let (stairs, _) = terrain_for(TaskKind::Stairs, (5, 5));
         assert_eq!(stairs.height(2.5), 0.0, "first tread: run = w = 5");
@@ -153,8 +168,14 @@ mod tests {
 
         let (hills, _) = terrain_for(TaskKind::Hills, (5, 5));
         let peak = 12.5; // quarter wavelength (amp = h²/4 = 6.25, λ = 50)
-        assert!((hills.height(peak) - 6.25).abs() < 1e-3, "amp = h²/4 = 6.25");
-        assert!(hills.height(-12.5).abs() > 0.5, "waves continue behind spawn");
+        assert!(
+            (hills.height(peak) - 6.25).abs() < 1e-3,
+            "amp = h²/4 = 6.25"
+        );
+        assert!(
+            hills.height(-12.5).abs() > 0.5,
+            "waves continue behind spawn"
+        );
         assert!(hills.height(2.5) > 0.5, "no flat shelf under the spawn");
     }
 
@@ -168,7 +189,10 @@ mod tests {
         }
         for o in &a {
             assert!(o.x_min >= 6.0, "past spawn margin");
-            assert!((1.0..=2.0).contains(&(o.x_max - o.x_min)), "width in 1..=floor(5/2)");
+            assert!(
+                (1.0..=2.0).contains(&(o.x_max - o.x_min)),
+                "width in 1..=floor(5/2)"
+            );
             assert!((1.0..=2.0).contains(&o.y_max), "height in 1..=floor(5/2)");
         }
     }

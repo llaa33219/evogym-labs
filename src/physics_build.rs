@@ -4,7 +4,9 @@
 //! `#[allow(dead_code)]` on the parent module's `mod build;` keeps rustc
 //! quiet for the test build.
 
-use crate::physics::{K_RIGID_DIAG, K_RIGID_EDGE, K_SOFT_DIAG, K_SOFT_EDGE, MASS, PointMass, Spring, Vec2};
+use crate::physics::{
+    K_RIGID_DIAG, K_RIGID_EDGE, K_SOFT_DIAG, K_SOFT_EDGE, MASS, PointMass, Spring, Vec2,
+};
 use crate::voxel::{Cell, Morphology, Stiffness};
 
 #[derive(Debug)]
@@ -37,19 +39,24 @@ pub(crate) fn cell_actuator_indices(cells: &[Cell]) -> Vec<Option<usize>> {
 /// ground by compression rather than by spawning inside it.
 pub(crate) fn build_masses(w: u8, h: u8, spawn_y: f32) -> Vec<PointMass> {
     let n_v = ((w as usize) + 1) * ((h as usize) + 1);
-    (0..n_v).map(|i| {
-        let vx = (i % (w as usize + 1)) as f32;
-        let vy = (i / (w as usize + 1)) as f32;
-        let mut pm = PointMass::fresh(Vec2::new(vx, vy + spawn_y));
-        pm.mass = MASS;
-        pm
-    }).collect()
+    (0..n_v)
+        .map(|i| {
+            let vx = (i % (w as usize + 1)) as f32;
+            let vy = (i / (w as usize + 1)) as f32;
+            let mut pm = PointMass::fresh(Vec2::new(vx, vy + spawn_y));
+            pm.mass = MASS;
+            pm
+        })
+        .collect()
 }
 
 /// For each cell, push its 6 springs (4 edges + 2 diagonals) and wire up
 /// the actuator wiring if the cell is `ActH` / `ActV`. Adjacent cells share
 /// the same edge spring — we defer dedupe to the next step.
-pub(crate) fn collect_cell_springs(morph: &Morphology, actuator_at: &[Option<usize>]) -> Vec<PendingSpring> {
+pub(crate) fn collect_cell_springs(
+    morph: &Morphology,
+    actuator_at: &[Option<usize>],
+) -> Vec<PendingSpring> {
     let w = morph.w as usize;
     let h = morph.h as usize;
     let vert_idx = |vx: usize, vy: usize| vy * (w + 1) + vx;
@@ -57,7 +64,9 @@ pub(crate) fn collect_cell_springs(morph: &Morphology, actuator_at: &[Option<usi
     for cy in 0..h {
         for cx in 0..w {
             let c = morph.cells[cy * w + cx];
-            let Some(stiff) = c.stiffness_kind() else { continue; };
+            let Some(stiff) = c.stiffness_kind() else {
+                continue;
+            };
             let (k_e, k_d) = match stiff {
                 Stiffness::Rigid => (K_RIGID_EDGE, K_RIGID_DIAG),
                 Stiffness::Soft => (K_SOFT_EDGE, K_SOFT_DIAG),
@@ -66,19 +75,63 @@ pub(crate) fn collect_cell_springs(morph: &Morphology, actuator_at: &[Option<usi
             let br = vert_idx(cx + 1, cy);
             let tl = vert_idx(cx, cy + 1);
             let tr = vert_idx(cx + 1, cy + 1);
-            raw.push(PendingSpring { a: bl, b: br, k: k_e, base_len: 1.0, is_diag: false, actuator_wire: Vec::new() });
-            raw.push(PendingSpring { a: tl, b: tr, k: k_e, base_len: 1.0, is_diag: false, actuator_wire: Vec::new() });
-            raw.push(PendingSpring { a: bl, b: tl, k: k_e, base_len: 1.0, is_diag: false, actuator_wire: Vec::new() });
-            raw.push(PendingSpring { a: br, b: tr, k: k_e, base_len: 1.0, is_diag: false, actuator_wire: Vec::new() });
-            raw.push(PendingSpring { a: bl, b: tr, k: k_d, base_len: std::f32::consts::SQRT_2, is_diag: true, actuator_wire: Vec::new() });
-            raw.push(PendingSpring { a: br, b: tl, k: k_d, base_len: std::f32::consts::SQRT_2, is_diag: true, actuator_wire: Vec::new() });
+            raw.push(PendingSpring {
+                a: bl,
+                b: br,
+                k: k_e,
+                base_len: 1.0,
+                is_diag: false,
+                actuator_wire: Vec::new(),
+            });
+            raw.push(PendingSpring {
+                a: tl,
+                b: tr,
+                k: k_e,
+                base_len: 1.0,
+                is_diag: false,
+                actuator_wire: Vec::new(),
+            });
+            raw.push(PendingSpring {
+                a: bl,
+                b: tl,
+                k: k_e,
+                base_len: 1.0,
+                is_diag: false,
+                actuator_wire: Vec::new(),
+            });
+            raw.push(PendingSpring {
+                a: br,
+                b: tr,
+                k: k_e,
+                base_len: 1.0,
+                is_diag: false,
+                actuator_wire: Vec::new(),
+            });
+            raw.push(PendingSpring {
+                a: bl,
+                b: tr,
+                k: k_d,
+                base_len: std::f32::consts::SQRT_2,
+                is_diag: true,
+                actuator_wire: Vec::new(),
+            });
+            raw.push(PendingSpring {
+                a: br,
+                b: tl,
+                k: k_d,
+                base_len: std::f32::consts::SQRT_2,
+                is_diag: true,
+                actuator_wire: Vec::new(),
+            });
 
             if let Some(act_idx) = actuator_at[cy * w + cx] {
                 let horiz = matches!(c, Cell::ActH);
                 let vert = matches!(c, Cell::ActV);
                 if horiz || vert {
                     for ps in raw.iter_mut().rev().take(6) {
-                        if ps.is_diag { continue; }
+                        if ps.is_diag {
+                            continue;
+                        }
                         let k_match = if horiz {
                             (ps.a == bl && ps.b == br)
                                 || (ps.a == tl && ps.b == tr)
@@ -90,7 +143,9 @@ pub(crate) fn collect_cell_springs(morph: &Morphology, actuator_at: &[Option<usi
                                 || (ps.a == tl && ps.b == bl)
                                 || (ps.a == tr && ps.b == br)
                         };
-                        if k_match { ps.actuator_wire.push(act_idx); }
+                        if k_match {
+                            ps.actuator_wire.push(act_idx);
+                        }
                     }
                 }
             }
@@ -109,7 +164,12 @@ pub(crate) fn cell_collision_data(morph: &Morphology) -> (Vec<[usize; 4]>, Vec<(
     for cy in 0..morph.h as usize {
         for cx in 0..w {
             if morph.cells[cy * w + cx].is_solid() {
-                cells.push([vert(cx, cy), vert(cx + 1, cy), vert(cx + 1, cy + 1), vert(cx, cy + 1)]);
+                cells.push([
+                    vert(cx, cy),
+                    vert(cx + 1, cy),
+                    vert(cx + 1, cy + 1),
+                    vert(cx, cy + 1),
+                ]);
             }
         }
     }
@@ -117,7 +177,9 @@ pub(crate) fn cell_collision_data(morph: &Morphology) -> (Vec<[usize; 4]>, Vec<(
     for a in 0..cells.len() {
         for b in (a + 1)..cells.len() {
             let shares = cells[a].iter().any(|v| cells[b].contains(v));
-            if !shares { pairs.push((a, b)); }
+            if !shares {
+                pairs.push((a, b));
+            }
         }
     }
     (cells, pairs)
@@ -142,7 +204,9 @@ pub(crate) fn dedupe_springs(raw: Vec<PendingSpring>) -> Vec<Spring> {
             && raw[j].a.max(raw[j].b) == key_b
             && raw[j].is_diag == diag
         {
-            if raw[j].k > k_best { k_best = raw[j].k; }
+            if raw[j].k > k_best {
+                k_best = raw[j].k;
+            }
             wire.extend_from_slice(&raw[j].actuator_wire);
             j += 1;
         }

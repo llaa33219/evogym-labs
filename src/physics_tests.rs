@@ -6,7 +6,11 @@ use crate::voxel::Cell;
 
 fn soft_3x3() -> Morphology {
     let mut m = Morphology::new(3, 3);
-    for cy in 0..3 { for cx in 0..3 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..3 {
+        for cx in 0..3 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     m.set(1, 1, Cell::ActV);
     m
 }
@@ -33,7 +37,10 @@ fn actuator_offsets_modulate_spring_length() {
     assert_eq!(w.morph.actuators().len(), 1);
     let mut found = false;
     for s in &w.springs {
-        if !s.is_diag && s.actuator_idx.contains(&0) { found = true; break; }
+        if !s.is_diag && s.actuator_idx.contains(&0) {
+            found = true;
+            break;
+        }
     }
     assert!(found, "no edge spring wired to actuator");
 }
@@ -51,30 +58,53 @@ fn obstacles_can_be_added() {
 fn obstacle_blocks_from_above_and_from_the_side() {
     // Drop a soft block onto a tall box: it must land on top, not fall through.
     let mut m = Morphology::new(2, 2);
-    for cy in 0..2 { for cx in 0..2 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..2 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world = World::new(m).with_obstacles(vec![Obstacle::new(0.0, 2.0, 0.0, 1.5)]);
     world.reset();
     let offs = vec![0.0; world.morph.actuators().len()];
     for _ in 0..240 {
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
     }
     assert!(!world.nan_seen);
-    assert!(world.com().y > 1.5, "block fell through the box (com y = {})", world.com().y);
+    assert!(
+        world.com().y > 1.5,
+        "block fell through the box (com y = {})",
+        world.com().y
+    );
 
     // Ram a block sideways into a box: climbing over is fine, but no mass
     // may ever be found deep inside the box interior (that is tunnelling).
     let mut m2 = Morphology::new(2, 2);
-    for cy in 0..2 { for cx in 0..2 { m2.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..2 {
+            m2.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world2 = World::new(m2).with_obstacles(vec![Obstacle::new(6.0, 7.0, 0.0, 2.0)]);
     world2.reset();
     let offs2 = vec![0.0; world2.morph.actuators().len()];
     for _ in 0..120 {
-        for mass in &mut world2.masses { mass.vel.x = mass.vel.x.max(3.0); }
-        for _ in 0..SUBSTEPS_PER_FRAME { world2.substep(&offs2); }
+        for mass in &mut world2.masses {
+            mass.vel.x = mass.vel.x.max(3.0);
+        }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world2.substep(&offs2);
+        }
         for mass in &world2.masses {
             let deep_x = mass.pos.x > 6.3 && mass.pos.x < 6.7;
             let deep_y = mass.pos.y < 1.5;
-            assert!(!(deep_x && deep_y), "mass tunnelled into the box at ({}, {})", mass.pos.x, mass.pos.y);
+            assert!(
+                !(deep_x && deep_y),
+                "mass tunnelled into the box at ({}, {})",
+                mass.pos.x,
+                mass.pos.y
+            );
         }
     }
     assert!(!world2.nan_seen);
@@ -83,7 +113,9 @@ fn obstacle_blocks_from_above_and_from_the_side() {
 #[test]
 fn velocity_clamp_prevents_unbounded_growth() {
     let mut m = Morphology::new(1, 8);
-    for cy in 0..8 { m.set(0, cy, Cell::Soft); }
+    for cy in 0..8 {
+        m.set(0, cy, Cell::Soft);
+    }
     m.set(0, 0, Cell::ActV);
     let mut world = World::new(m);
     let com = world.simulate(2.0, |_, _| 0.0);
@@ -95,7 +127,10 @@ fn velocity_clamp_prevents_unbounded_growth() {
 fn stair_riser_side_hit_does_not_launch() {
     // A point deep inside a step column must exit through the nearest face
     // (horizontal for a riser hit), never straight up.
-    let g = Ground::Stairs { run: 5.0, rise: 2.0 };
+    let g = Ground::Stairs {
+        run: 5.0,
+        rise: 2.0,
+    };
     // Inside the second step column (x in 5..10, tread top at y=2), near the riser.
     let ((nx, _), _) = g.contact(5.1, 1.5, 5.0, 0.0).unwrap();
     assert_eq!(nx, -1.0, "riser hit must push horizontally");
@@ -109,15 +144,25 @@ fn stair_riser_side_hit_does_not_launch() {
     let ((nx, _), _) = g.contact(5.05, 1.95, 3.0, 0.0).unwrap();
     assert_eq!(nx, -1.0, "horizontal arrival at the corner must not pop up");
     let ((nx, ny), _) = g.contact(5.05, 1.95, 0.0, -3.0).unwrap();
-    assert_eq!((nx, ny), (0.0, 1.0), "falling onto the corner lands on the tread");
+    assert_eq!(
+        (nx, ny),
+        (0.0, 1.0),
+        "falling onto the corner lands on the tread"
+    );
 
     // Dynamic check: ram a robot into the first riser at high speed; its COM
     // must stay below the tread top + a small bounce allowance.
     let mut m = Morphology::new(3, 2);
-    for cy in 0..2 { for cx in 0..3 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..3 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world = World::new(m).with_terrain(g, Vec::new());
     world.reset();
-    for mass in &mut world.masses { mass.vel.x = 30.0; }
+    for mass in &mut world.masses {
+        mass.vel.x = 30.0;
+    }
     let mut max_y = f32::NEG_INFINITY;
     let offs = vec![0.0; world.morph.actuators().len()];
     for _ in 0..240 {
@@ -127,12 +172,20 @@ fn stair_riser_side_hit_does_not_launch() {
         max_y = max_y.max(world.com().y);
     }
     assert!(!world.nan_seen);
-    assert!(max_y < 6.0, "riser hit launched the robot (peak COM y = {max_y})");
+    assert!(
+        max_y < 6.0,
+        "riser hit launched the robot (peak COM y = {max_y})"
+    );
 }
 fn cell_signed_area(world: &World, cx: usize, cy: usize) -> f32 {
     let w = world.morph.w as usize;
     let vert = |vx: usize, vy: usize| vy * (w + 1) + vx;
-    let idx = [vert(cx, cy), vert(cx + 1, cy), vert(cx + 1, cy + 1), vert(cx, cy + 1)];
+    let idx = [
+        vert(cx, cy),
+        vert(cx + 1, cy),
+        vert(cx + 1, cy + 1),
+        vert(cx, cy + 1),
+    ];
     let p: Vec<Vec2> = idx.iter().map(|&i| world.masses[i].pos).collect();
     let mut cross = 0.0;
     for e in 0..4 {
@@ -148,7 +201,11 @@ fn crumpled_cells_reopen_and_overlaps_separate() {
     // let the sim run: cells must reopen and no two masses may stay
     // interpenetrating.
     let mut m = Morphology::new(3, 2);
-    for cy in 0..2 { for cx in 0..3 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..3 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world = World::new(m);
     world.reset();
     let w = world.morph.w as usize;
@@ -158,7 +215,9 @@ fn crumpled_cells_reopen_and_overlaps_separate() {
     }
     let offs = vec![0.0; world.morph.actuators().len()];
     for _ in 0..90 {
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
     }
     assert!(!world.nan_seen);
     for cy in 0..2 {
@@ -172,7 +231,9 @@ fn crumpled_cells_reopen_and_overlaps_separate() {
     // parts may come almost into contact but never overlap meaningfully.
     let mut max_pen = 0.0f32;
     for _ in 0..60 {
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
         for &(ia, ib) in &world.cell_pairs {
             for &(from, into) in &[(ia, ib), (ib, ia)] {
                 let quad = [
@@ -190,7 +251,10 @@ fn crumpled_cells_reopen_and_overlaps_separate() {
             }
         }
     }
-    assert!(max_pen < 0.3, "body parts interpenetrated (deepest vertex {max_pen} m inside another cell)");
+    assert!(
+        max_pen < 0.3,
+        "body parts interpenetrated (deepest vertex {max_pen} m inside another cell)"
+    );
 }
 
 #[test]
@@ -199,7 +263,11 @@ fn self_collision_cannot_propel_the_body() {
     // momentum-neutral corrections the COM must not drift away — a one-sided
     // pushout would pump the body sideways for free.
     let mut m = Morphology::new(3, 2);
-    for cy in 0..2 { for cx in 0..3 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..3 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world = World::new(m);
     world.reset();
     let w = world.morph.w as usize;
@@ -210,25 +278,34 @@ fn self_collision_cannot_propel_the_body() {
     let start_x = world.com().x;
     let offs = vec![0.0; world.morph.actuators().len()];
     for _ in 0..150 {
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
     }
     assert!(!world.nan_seen);
     let drift = (world.com().x - start_x).abs();
-    assert!(drift < 0.5, "self-collision propelled the body by {drift} m");
+    assert!(
+        drift < 0.5,
+        "self-collision propelled the body by {drift} m"
+    );
 }
 
 #[test]
 fn large_32x32_grid_simulates() {
     let mut m = Morphology::new(32, 32);
     for cy in 10..14 {
-        for cx in 10..14 { m.set(cx, cy, Cell::Soft); }
+        for cx in 10..14 {
+            m.set(cx, cy, Cell::Soft);
+        }
     }
     m.set(11, 11, Cell::ActH);
     let mut world = World::new(m);
     world.reset();
     let offs = vec![0.0; world.morph.actuators().len()];
     for _ in 0..30 {
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
     }
     assert!(!world.nan_seen);
     assert!(world.com().y.is_finite());
@@ -239,7 +316,11 @@ fn inverted_cell_unwinds() {
     // Flip a cell inside-out by swapping two opposite corners, then run:
     // every cell must recover a healthy positive area.
     let mut m = Morphology::new(2, 2);
-    for cy in 0..2 { for cx in 0..2 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..2 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world = World::new(m);
     world.reset();
     // Cell (0,0) corners: bl=(0,0) index 0, tr=(1,1) index w+2 = 4.
@@ -248,7 +329,9 @@ fn inverted_cell_unwinds() {
     world.masses[4].pos = p0;
     let offs = vec![0.0; world.morph.actuators().len()];
     for _ in 0..120 {
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
     }
     assert!(!world.nan_seen);
     for cy in 0..2 {
@@ -266,7 +349,11 @@ fn violent_actuation_never_launches() {
     // anywhere near the 50 m/s velocity clamp (i.e. no launch), and no
     // spring may stay crushed below its positional minimum.
     let mut m = Morphology::new(3, 3);
-    for cy in 0..3 { for cx in 0..3 { m.set(cx, cy, Cell::ActH); } }
+    for cy in 0..3 {
+        for cx in 0..3 {
+            m.set(cx, cy, Cell::ActH);
+        }
+    }
     let mut world = World::new(m);
     world.reset();
     let n = world.morph.actuators().len();
@@ -290,7 +377,11 @@ fn violent_actuation_never_launches() {
         let a = world.masses[s.a].pos;
         let b = world.masses[s.b].pos;
         let len = (b.x - a.x).hypot(b.y - a.y);
-        assert!(len > s.base_len * 0.35, "spring stayed crushed ({len} of {})", s.base_len);
+        assert!(
+            len > s.base_len * 0.35,
+            "spring stayed crushed ({len} of {})",
+            s.base_len
+        );
     }
 }
 
@@ -298,22 +389,38 @@ fn violent_actuation_never_launches() {
 fn stair_corner_slide_does_not_pop_upward() {
     // A robot pressed sideways along the lower tread into the first riser:
     // no mass may jump upward by a large step within a single frame.
-    let g = Ground::Stairs { run: 5.0, rise: 2.0 };
+    let g = Ground::Stairs {
+        run: 5.0,
+        rise: 2.0,
+    };
     let mut m = Morphology::new(2, 2);
-    for cy in 0..2 { for cx in 0..2 { m.set(cx, cy, Cell::Soft); } }
+    for cy in 0..2 {
+        for cx in 0..2 {
+            m.set(cx, cy, Cell::Soft);
+        }
+    }
     let mut world = World::new(m).with_terrain(g, Vec::new());
     world.reset();
     let offs = vec![0.0; world.morph.actuators().len()];
     let mut max_jump = 0.0f32;
     let mut prev_ys: Vec<f32> = world.masses.iter().map(|m| m.pos.y).collect();
     for frame in 0..480 {
-        for mass in &mut world.masses { mass.vel.x = mass.vel.x.max(2.0); }
-        for _ in 0..SUBSTEPS_PER_FRAME { world.substep(&offs); }
+        for mass in &mut world.masses {
+            mass.vel.x = mass.vel.x.max(2.0);
+        }
+        for _ in 0..SUBSTEPS_PER_FRAME {
+            world.substep(&offs);
+        }
         for (i, mass) in world.masses.iter().enumerate() {
             let jump = mass.pos.y - prev_ys[i];
-            if frame > 60 { max_jump = max_jump.max(jump); }
+            if frame > 60 {
+                max_jump = max_jump.max(jump);
+            }
             prev_ys[i] = mass.pos.y;
         }
     }
-    assert!(max_jump < 0.5, "corner popped a mass upward by {max_jump} m in one frame");
+    assert!(
+        max_jump < 0.5,
+        "corner popped a mass upward by {max_jump} m in one frame"
+    );
 }

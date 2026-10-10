@@ -70,7 +70,11 @@ pub struct FrameBuffer {
 
 impl FrameBuffer {
     pub fn new(w: usize, h: usize) -> Self {
-        Self { w, h, rgb: vec![0; w * h * 3] }
+        Self {
+            w,
+            h,
+            rgb: vec![0; w * h * 3],
+        }
     }
 
     pub fn clear(&mut self, colour: Rgb) {
@@ -82,7 +86,9 @@ impl FrameBuffer {
     }
 
     pub fn set_pixel(&mut self, x: i32, y: i32, c: Rgb) {
-        if x < 0 || y < 0 || (x as usize) >= self.w || (y as usize) >= self.h { return; }
+        if x < 0 || y < 0 || (x as usize) >= self.w || (y as usize) >= self.h {
+            return;
+        }
         let i = (y as usize) * self.w * 3 + (x as usize) * 3;
         self.rgb[i] = c.0;
         self.rgb[i + 1] = c.1;
@@ -105,7 +111,9 @@ impl FrameBuffer {
     }
 
     /// Append a frame to an encoder sink — used by the headless CLI.
-    pub fn as_bytes(&self) -> &[u8] { &self.rgb }
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.rgb
+    }
 }
 
 /// Camera state (smooth follow). `px_per_m` adapts to the robot's grid
@@ -168,7 +176,9 @@ fn draw_line(fb: &mut FrameBuffer, x0: f32, y0: f32, x1: f32, y1: f32, colour: R
     let dx = x1 - x0;
     let dy = y1 - y0;
     let steps = dx.abs().max(dy.abs()).ceil() as i32;
-    if steps <= 0 { return; }
+    if steps <= 0 {
+        return;
+    }
     for s in 0..=steps {
         let t = s as f32 / steps as f32;
         let px = (x0 + dx * t) as i32;
@@ -188,21 +198,29 @@ fn fill_quad(fb: &mut FrameBuffer, q: &[(f32, f32); 4], colour: Rgb) {
     // 4 edges, closing the loop (3→0) — `q.windows(2)` would miss the wrap.
     let edges = [(q[0], q[1]), (q[1], q[2]), (q[2], q[3]), (q[3], q[0])];
     for y in y_min..=y_max {
-        if y < 0 || (y as usize) >= fb.h { continue; }
+        if y < 0 || (y as usize) >= fb.h {
+            continue;
+        }
         let mut xs: Vec<f32> = Vec::new();
         for &((x0, y0), (x1, y1)) in &edges {
             if (y0 <= y as f32 && y1 >= y as f32) || (y1 <= y as f32 && y0 >= y as f32) {
-                if (y1 - y0).abs() < 1e-6 { continue; }
+                if (y1 - y0).abs() < 1e-6 {
+                    continue;
+                }
                 let t = (y as f32 - y0) / (y1 - y0);
                 xs.push(x0 + t * (x1 - x0));
             }
         }
-        if xs.len() < 2 { continue; }
+        if xs.len() < 2 {
+            continue;
+        }
         xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let xa = xs[0].ceil() as i32;
         let xb = xs[xs.len() - 1].floor() as i32;
         for x in xa..=xb {
-            if x < 0 || (x as usize) >= fb.w { continue; }
+            if x < 0 || (x as usize) >= fb.w {
+                continue;
+            }
             fb.set_pixel(x, y, colour);
         }
     }
@@ -216,7 +234,11 @@ const ACTUATOR_DL_MAX: f32 = 0.3;
 /// current drive amplitude.
 fn actuator_tint(base: Rgb, dl: f32) -> Rgb {
     let t = (dl.abs() / ACTUATOR_DL_MAX).clamp(0.0, 1.0);
-    let mix = |c: u8| (c as f32 + (255.0 - c as f32) * 0.35 * t).round().min(255.0) as u8;
+    let mix = |c: u8| {
+        (c as f32 + (255.0 - c as f32) * 0.35 * t)
+            .round()
+            .min(255.0) as u8
+    };
     Rgb(mix(base.0), mix(base.1), mix(base.2))
 }
 
@@ -231,14 +253,22 @@ pub fn draw_robot(fb: &mut FrameBuffer, cam: &Camera, world: &World, actuator_dl
 /// Position-snapshot variant of `draw_robot` — used by the parallel video
 /// renderer, where each frame is drawn from a recorded snapshot while the
 /// simulation has long moved on.
-pub fn draw_robot_positions(fb: &mut FrameBuffer, cam: &Camera, world: &World, positions: &[Vec2], actuator_dl: &[f32]) {
+pub fn draw_robot_positions(
+    fb: &mut FrameBuffer,
+    cam: &Camera,
+    world: &World,
+    positions: &[Vec2],
+    actuator_dl: &[f32],
+) {
     let w = world.morph.w as usize;
     let vert_idx = |vx: usize, vy: usize| vy * (w + 1) + vx;
     for cy in 0..world.morph.h as usize {
         for cx in 0..world.morph.w as usize {
             let cell_i = cy * w + cx;
             let c = world.morph.cells[cell_i];
-            if !c.is_solid() { continue; }
+            if !c.is_solid() {
+                continue;
+            }
             let base = world.morph.colors[cell_i]
                 .map(|rgb| Rgb(rgb[0], rgb[1], rgb[2]))
                 .unwrap_or(cell_colour(c));
@@ -305,7 +335,9 @@ pub fn draw_terrain(fb: &mut FrameBuffer, cam: &Camera, ground: &Ground, obstacl
         let mut y = (sy + 2).max(0);
         while y < FRAME_H as i32 {
             let row = ((y - sy) as f32 / cam.px_per_m).floor() as i32;
-            let band_end = (sy + ((row + 1) as f32 * cam.px_per_m) as i32).min(FRAME_H as i32).max(y + 1);
+            let band_end = (sy + ((row + 1) as f32 * cam.px_per_m) as i32)
+                .min(FRAME_H as i32)
+                .max(y + 1);
             let c = ground_shade(col, row);
             for yy in y..band_end {
                 fb.set_pixel(px, yy, c);
@@ -369,7 +401,11 @@ mod tests {
 
     fn dummy_morph() -> Morphology {
         let mut m = Morphology::new(2, 2);
-        for cy in 0..2 { for cx in 0..2 { m.set(cx, cy, Cell::Soft); } }
+        for cy in 0..2 {
+            for cx in 0..2 {
+                m.set(cx, cy, Cell::Soft);
+            }
+        }
         m.set(0, 0, Cell::ActH);
         m
     }
@@ -397,13 +433,16 @@ mod tests {
         let _ = save_ppm("/tmp/evogym_test_render.ppm", &fb);
         let mut has_robot = false;
         for chunk in fb.rgb.chunks_exact(3) {
-            let r = chunk[0]; let g = chunk[1]; let b = chunk[2];
+            let r = chunk[0];
+            let g = chunk[1];
+            let b = chunk[2];
             if (r == 80 && g == 200 && b == 110)
                 || (r == 140 && g == 140 && b == 150)
                 || (r == 220 && g == 70 && b == 70)
                 || (r == 70 && g == 100 && b == 220)
             {
-                has_robot = true; break;
+                has_robot = true;
+                break;
             }
         }
         assert!(has_robot, "robot did not paint any cell-coloured pixel");
@@ -426,75 +465,75 @@ mod tests {
         assert!(white_count > 50, "overlay drew nothing");
     }
 
-/// Regression for the "white rounded rectangles behind each glyph" bug.
-///
-/// The ab_glyph rasterizer's `for_each_pixel_2d` callback fires for
-/// **every pixel** in the rasterizer's buffer (size = `px_bounds`) and
-/// passes a *cumulative* running sum as the coverage value — never reset
-/// across the iteration. With a naive `if cov > 0.0` filter, every pixel
-/// from the first non-zero pixel onwards gets painted, which fills each
-/// glyph's bounding box with a solid block of the text colour. The fix
-/// uses the per-pixel delta (`acc - prev_acc`) as the real coverage.
-#[test]
-fn text_does_not_fill_glyph_bounding_boxes() {
-    use crate::text::draw_text;
+    /// Regression for the "white rounded rectangles behind each glyph" bug.
+    ///
+    /// The ab_glyph rasterizer's `for_each_pixel_2d` callback fires for
+    /// **every pixel** in the rasterizer's buffer (size = `px_bounds`) and
+    /// passes a *cumulative* running sum as the coverage value — never reset
+    /// across the iteration. With a naive `if cov > 0.0` filter, every pixel
+    /// from the first non-zero pixel onwards gets painted, which fills each
+    /// glyph's bounding box with a solid block of the text colour. The fix
+    /// uses the per-pixel delta (`acc - prev_acc`) as the real coverage.
+    #[test]
+    fn text_does_not_fill_glyph_bounding_boxes() {
+        use crate::text::draw_text;
 
-    let mut fb = FrameBuffer::new(800, 200);
-    fb.clear(Rgb(50, 50, 50));
-    draw_text(&mut fb, 20, 30, "Generation 4", 1, Rgb::WHITE);
+        let mut fb = FrameBuffer::new(800, 200);
+        fb.clear(Rgb(50, 50, 50));
+        draw_text(&mut fb, 20, 30, "Generation 4", 1, Rgb::WHITE);
 
-    // Sample the region big enough to fully contain every glyph's bbox for
-    // "Generation 4" at the default font scale (~40 px). With the bug the
-    // entire region is ~100% white (every bbox painted solid); without the
-    // bug only the glyph strokes and antialiased edges are white.
-    let x0 = 0;
-    let x1 = 800;
-    let y0 = 20;
-    let y1 = 130;
-    let mut pure_white = 0usize;
-    let mut total = 0usize;
-    for y in y0..y1 {
-        for x in x0..x1 {
-            let i = y * fb.w * 3 + x * 3;
-            let r = fb.rgb[i];
-            let g = fb.rgb[i + 1];
-            let b = fb.rgb[i + 2];
-            total += 1;
-            if r == 255 && g == 255 && b == 255 {
-                pure_white += 1;
+        // Sample the region big enough to fully contain every glyph's bbox for
+        // "Generation 4" at the default font scale (~40 px). With the bug the
+        // entire region is ~100% white (every bbox painted solid); without the
+        // bug only the glyph strokes and antialiased edges are white.
+        let x0 = 0;
+        let x1 = 800;
+        let y0 = 20;
+        let y1 = 130;
+        let mut pure_white = 0usize;
+        let mut total = 0usize;
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let i = y * fb.w * 3 + x * 3;
+                let r = fb.rgb[i];
+                let g = fb.rgb[i + 1];
+                let b = fb.rgb[i + 2];
+                total += 1;
+                if r == 255 && g == 255 && b == 255 {
+                    pure_white += 1;
+                }
             }
         }
-    }
-    let frac = pure_white as f32 / total as f32;
-    assert!(
-        frac < 0.30,
-        "glyph bboxes are being filled (white fraction {frac:.2}); the \
+        let frac = pure_white as f32 / total as f32;
+        assert!(
+            frac < 0.30,
+            "glyph bboxes are being filled (white fraction {frac:.2}); the \
          ab_glyph cumulative-acc fix did not take effect",
-    );
+        );
 
-    // Also assert no glyph-sized solid white stamp appears: a horizontal
-    // run of pure white longer than any single stroke in the font indicates
-    // a bbox fill. The thickest stroke in NotoSans-Bold at scale 36 is
-    // ~25 px — anything significantly wider is the bug.
-    let mut max_white_streak = 0usize;
-    for y in y0..y1 {
-        let mut run = 0usize;
-        for x in x0..x1 {
-            let i = y * fb.w * 3 + x * 3;
-            if fb.rgb[i] == 255 && fb.rgb[i + 1] == 255 && fb.rgb[i + 2] == 255 {
-                run += 1;
-                max_white_streak = max_white_streak.max(run);
-            } else {
-                run = 0;
+        // Also assert no glyph-sized solid white stamp appears: a horizontal
+        // run of pure white longer than any single stroke in the font indicates
+        // a bbox fill. The thickest stroke in NotoSans-Bold at scale 36 is
+        // ~25 px — anything significantly wider is the bug.
+        let mut max_white_streak = 0usize;
+        for y in y0..y1 {
+            let mut run = 0usize;
+            for x in x0..x1 {
+                let i = y * fb.w * 3 + x * 3;
+                if fb.rgb[i] == 255 && fb.rgb[i + 1] == 255 && fb.rgb[i + 2] == 255 {
+                    run += 1;
+                    max_white_streak = max_white_streak.max(run);
+                } else {
+                    run = 0;
+                }
             }
         }
-    }
-    assert!(
-        max_white_streak < 80,
-        "found a horizontal run of {max_white_streak} pure-white pixels — \
+        assert!(
+            max_white_streak < 80,
+            "found a horizontal run of {max_white_streak} pure-white pixels — \
          likely a filled glyph bbox (the bug)",
-    );
-}
+        );
+    }
 
     #[test]
     fn bitmap_fallback_renders_ascii() {
@@ -519,8 +558,15 @@ fn text_does_not_fill_glyph_bounding_boxes() {
     fn large_robots_zoom_out() {
         let small = Camera::for_robot(5, 5);
         let big = Camera::for_robot(32, 32);
-        assert!((small.px_per_m - 80.0).abs() < 1e-4, "small robots keep the default zoom");
-        assert!(big.px_per_m < 20.0, "32-wide robot must zoom out (got {})", big.px_per_m);
+        assert!(
+            (small.px_per_m - 80.0).abs() < 1e-4,
+            "small robots keep the default zoom"
+        );
+        assert!(
+            big.px_per_m < 20.0,
+            "32-wide robot must zoom out (got {})",
+            big.px_per_m
+        );
         // A 32 m robot spans under half the frame width at this zoom.
         assert!(32.0 * big.px_per_m < FRAME_W as f32 * 0.5);
     }
@@ -538,7 +584,10 @@ fn text_does_not_fill_glyph_bounding_boxes() {
         render_world(&mut fb, &cam, &world, &[]);
         let mut found = false;
         for chunk in fb.rgb.chunks_exact(3) {
-            if chunk[0] == 12 && chunk[1] == 34 && chunk[2] == 200 { found = true; break; }
+            if chunk[0] == 12 && chunk[1] == 34 && chunk[2] == 200 {
+                found = true;
+                break;
+            }
         }
         assert!(found, "custom cell colour not rendered");
     }
@@ -556,7 +605,10 @@ fn text_does_not_fill_glyph_bounding_boxes() {
         let base = cell_colour(Cell::ActH);
         assert_eq!(actuator_tint(base, 0.0), base, "no drive → base colour");
         let lit = actuator_tint(base, ACTUATOR_DL_MAX);
-        assert!(lit.0 > base.0 && lit.1 > base.1 && lit.2 > base.2, "full drive → brighter");
+        assert!(
+            lit.0 > base.0 && lit.1 > base.1 && lit.2 > base.2,
+            "full drive → brighter"
+        );
         let half = actuator_tint(base, ACTUATOR_DL_MAX * 0.5);
         assert!(half.0 > base.0 && half.0 < lit.0, "monotonic in |dl|");
     }
@@ -574,6 +626,9 @@ fn text_does_not_fill_glyph_bounding_boxes() {
     fn noto_font_is_discoverable_on_this_system() {
         // Not strictly required (bitmap fallback exists), but in our CI box
         // we expect at least one Noto font to be present.
-        assert!(find_noto_font().is_some(), "expected Noto font under /usr/share/fonts");
+        assert!(
+            find_noto_font().is_some(),
+            "expected Noto font under /usr/share/fonts"
+        );
     }
 }

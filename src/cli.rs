@@ -21,9 +21,9 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
-use crate::evolution::{run as evolve, EvolutionConfig, Mode, Progress};
+use crate::evolution::{EvolutionConfig, Mode, Progress, run as evolve};
 use crate::tasks::TaskKind;
-use crate::video::{render_plan, ClipSpec, VideoError};
+use crate::video::{ClipSpec, VideoError, render_plan};
 use crate::voxel::{Cell, Morphology};
 
 /// Build a sensible 5×5 demo robot: rigid base + a few horizontal actuators
@@ -149,7 +149,9 @@ fn run_inner(cli: &Cli) -> Result<(), VideoError> {
         let mut plan = std::collections::BTreeSet::new();
         plan.insert(0);
         plan.insert(cli.gens - 1);
-        if cli.gens >= 3 { plan.insert(cli.gens / 2); }
+        if cli.gens >= 3 {
+            plan.insert(cli.gens / 2);
+        }
         plan.into_iter().collect()
     };
 
@@ -158,11 +160,23 @@ fn run_inner(cli: &Cli) -> Result<(), VideoError> {
         Progress::Started { total_gens, pop } => {
             eprintln!("[cli] starting evolution: total_gens={total_gens} pop={pop}");
         }
-        Progress::Generation { generation, total, best, mean } => {
-            eprintln!("[cli]   gen {generation:>3}/{total}  best={best:>6.2} m  mean={mean:>6.2} m");
+        Progress::Generation {
+            generation,
+            total,
+            best,
+            mean,
+        } => {
+            eprintln!(
+                "[cli]   gen {generation:>3}/{total}  best={best:>6.2} m  mean={mean:>6.2} m"
+            );
         }
-        Progress::Done { generations, best_overall } => {
-            eprintln!("[cli] evolution done: generations={generations} best_overall={best_overall:.2} m");
+        Progress::Done {
+            generations,
+            best_overall,
+        } => {
+            eprintln!(
+                "[cli] evolution done: generations={generations} best_overall={best_overall:.2} m"
+            );
         }
         Progress::Error(e) => {
             eprintln!("[cli] GA error: {e}");
@@ -178,13 +192,24 @@ fn run_inner(cli: &Cli) -> Result<(), VideoError> {
             is_final: i + 1 == plan_gens.len(),
         })
         .collect();
-    eprintln!("[cli] rendering {} clip(s) into {}", plan.len(), cli.out.display());
+    eprintln!(
+        "[cli] rendering {} clip(s) into {}",
+        plan.len(),
+        cli.out.display()
+    );
     for s in &plan {
-        eprintln!("[cli]   - generation {} for {:.2}s", s.generation, s.seconds);
+        eprintln!(
+            "[cli]   - generation {} for {:.2}s",
+            s.generation, s.seconds
+        );
     }
 
     let out = render_plan(&plan, &result.history, cfg.task, Path::new(&cli.out))?;
-    eprintln!("[cli] wrote {} ({} clip(s))", out.output_path.display(), out.clips.len());
+    eprintln!(
+        "[cli] wrote {} ({} clip(s))",
+        out.output_path.display(),
+        out.clips.len()
+    );
     Ok(())
 }
 

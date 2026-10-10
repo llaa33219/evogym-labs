@@ -15,8 +15,8 @@ fn headless_cli_produces_valid_video() {
     let _ = std::fs::remove_file(out);
 
     evogym_labs::cli::run_with(
-        2, // gens
-        4, // pop
+        2,   // gens
+        4,   // pop
         0.5, // eval_secs
         1.0, // clip_secs
         out,
@@ -29,10 +29,14 @@ fn headless_cli_produces_valid_video() {
 
     let ffprobe = Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=width,height,codec_name,pix_fmt,r_frame_rate",
-            "-of", "csv=s=x:p=0",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,codec_name,pix_fmt,r_frame_rate",
+            "-of",
+            "csv=s=x:p=0",
         ])
         .arg(out)
         .output()

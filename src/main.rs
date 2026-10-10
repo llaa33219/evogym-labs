@@ -21,8 +21,13 @@ fn main() -> std::process::ExitCode {
     // GUI path
     #[cfg(feature = "gui")]
     {
-        let viewport = egui::ViewportBuilder::default().with_title("EvoGym-Labs").with_inner_size([1280.0, 800.0]);
-        let options = eframe::NativeOptions { viewport, ..Default::default() };
+        let viewport = egui::ViewportBuilder::default()
+            .with_title("EvoGym-Labs")
+            .with_inner_size([1280.0, 800.0]);
+        let options = eframe::NativeOptions {
+            viewport,
+            ..Default::default()
+        };
         match eframe::run_native(
             "EvoGym-Labs",
             options,

@@ -38,8 +38,12 @@ pub fn resize(m: &mut Morphology, w: u8, h: u8) {
 
 /// Clear the entire grid (cells → Empty, colours → none).
 pub fn clear(m: &mut Morphology) {
-    for c in m.cells.iter_mut() { *c = Cell::Empty; }
-    for c in m.colors.iter_mut() { *c = None; }
+    for c in m.cells.iter_mut() {
+        *c = Cell::Empty;
+    }
+    for c in m.colors.iter_mut() {
+        *c = None;
+    }
 }
 
 /// Physics puts cell row 0 at the *bottom* (world y grows upward) while the
@@ -82,7 +86,11 @@ mod tests {
         resize(&mut m, 2, 2);
         assert_eq!(m.get(0, 0), Cell::Rigid);
         // Out-of-range cells are dropped.
-        assert!(m.cells.iter().all(|c| *c == Cell::Rigid || *c == Cell::Empty));
+        assert!(
+            m.cells
+                .iter()
+                .all(|c| *c == Cell::Rigid || *c == Cell::Empty)
+        );
     }
 
     #[test]
@@ -90,17 +98,29 @@ mod tests {
         let mut m = Morphology::new(3, 3);
         paint(&mut m, 1, 1, Cell::ActH);
         paint_color(&mut m, 1, 1, Some([10, 20, 30]));
-        assert_eq!(m.get(1, 1), Cell::ActH, "colour paint must not change the type");
+        assert_eq!(
+            m.get(1, 1),
+            Cell::ActH,
+            "colour paint must not change the type"
+        );
         assert_eq!(m.color_of(1, 1), Some([10, 20, 30]));
         resize(&mut m, 4, 4);
         assert_eq!(m.get(1, 1), Cell::ActH);
-        assert_eq!(m.color_of(1, 1), Some([10, 20, 30]), "resize must carry colours");
+        assert_eq!(
+            m.color_of(1, 1),
+            Some([10, 20, 30]),
+            "resize must carry colours"
+        );
         paint_color(&mut m, 1, 1, None);
         assert_eq!(m.color_of(1, 1), None, "erase restores the type colour");
         // Re-painting a type onto a coloured cell resets it to the default colour.
         paint_color(&mut m, 0, 0, Some([200, 10, 10]));
         paint(&mut m, 0, 0, Cell::Soft);
-        assert_eq!(m.color_of(0, 0), None, "freshly placed cell starts in the default colour");
+        assert_eq!(
+            m.color_of(0, 0),
+            None,
+            "freshly placed cell starts in the default colour"
+        );
     }
 
     #[test]

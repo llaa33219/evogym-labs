@@ -101,7 +101,9 @@ pub struct Vec2 {
 
 impl Vec2 {
     pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
-    pub fn new(x: f32, y: f32) -> Self { Self { x, y } }
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -114,7 +116,12 @@ pub struct PointMass {
 
 impl PointMass {
     fn fresh(pos: Vec2) -> Self {
-        Self { pos, vel: Vec2::ZERO, force: Vec2::ZERO, mass: MASS }
+        Self {
+            pos,
+            vel: Vec2::ZERO,
+            force: Vec2::ZERO,
+            mass: MASS,
+        }
     }
 }
 
@@ -141,7 +148,12 @@ pub struct Obstacle {
 
 impl Obstacle {
     pub fn new(x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Self {
-        Self { x_min, x_max, y_min, y_max }
+        Self {
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+        }
     }
 }
 
@@ -153,11 +165,19 @@ impl Obstacle {
 pub enum Ground {
     Flat,
     /// Inclined plane with the given rate (tan of the incline angle).
-    Slope { rate: f32 },
+    Slope {
+        rate: f32,
+    },
     /// Staircase: treads of `run` width, each `rise` taller than the last.
-    Stairs { run: f32, rise: f32 },
+    Stairs {
+        run: f32,
+        rise: f32,
+    },
     /// Sine-wave hills with the given amplitude / wavelength.
-    Hills { amp: f32, wavelength: f32 },
+    Hills {
+        amp: f32,
+        wavelength: f32,
+    },
 }
 
 impl Ground {
@@ -191,14 +211,20 @@ impl Ground {
         /// Below this distance to both faces we are "at the corner".
         const CORNER_ZONE: f32 = 0.3;
         let g = self.height(x);
-        if y >= g { return None; }
+        if y >= g {
+            return None;
+        }
         match *self {
             Ground::Stairs { run, .. } => {
                 let i = (x / run).floor();
                 let pen_up = g - y;
                 let pen_left = x - i * run;
                 let pen_right = (i + 1.0) * run - x;
-                let side = if pen_left <= pen_right { (-1.0, pen_left) } else { (1.0, pen_right) };
+                let side = if pen_left <= pen_right {
+                    (-1.0, pen_left)
+                } else {
+                    (1.0, pen_right)
+                };
                 if pen_up <= side.1 {
                     let at_corner = side.1 < CORNER_ZONE && pen_up < CORNER_ZONE;
                     if at_corner && vx.abs() > vy.abs() {
@@ -246,7 +272,9 @@ pub struct World {
 #[path = "physics_build.rs"]
 mod build;
 
-use self::build::{build_masses, cell_actuator_indices, cell_collision_data, collect_cell_springs, dedupe_springs};
+use self::build::{
+    build_masses, cell_actuator_indices, cell_collision_data, collect_cell_springs, dedupe_springs,
+};
 
 impl World {
     /// Build a world from a morphology. Vertices are placed at world
@@ -331,13 +359,19 @@ impl World {
                 n += 1.0;
             }
         }
-        if n > 0.0 { Vec2::new(sx / n, sy / n) } else { Vec2::ZERO }
+        if n > 0.0 {
+            Vec2::new(sx / n, sy / n)
+        } else {
+            Vec2::ZERO
+        }
     }
 }
 
 /// Zero every mass's force accumulator.
 fn zero_forces(masses: &mut [PointMass]) {
-    for m in masses.iter_mut() { m.force = Vec2::ZERO; }
+    for m in masses.iter_mut() {
+        m.force = Vec2::ZERO;
+    }
 }
 
 /// Apply gravity (per-mass).
@@ -365,7 +399,9 @@ fn apply_springs(masses: &mut [PointMass], springs: &[Spring], actuator_offsets:
 
         let mut l_eff = s.base_len;
         for &i in &s.actuator_idx {
-            if let Some(&d) = actuator_offsets.get(i) { l_eff += d; }
+            if let Some(&d) = actuator_offsets.get(i) {
+                l_eff += d;
+            }
         }
 
         let stretch = len - l_eff;
@@ -393,7 +429,9 @@ fn solve_min_length(masses: &mut [PointMass], springs: &[Spring]) {
         let dy = masses[b].pos.y - masses[a].pos.y;
         let len = (dx * dx + dy * dy).sqrt().max(1e-6);
         let min_len = s.base_len * MIN_SPRING_RATIO;
-        if len >= min_len { continue; }
+        if len >= min_len {
+            continue;
+        }
         let ux = dx / len;
         let uy = dy / len;
         let push = ((min_len - len) * 0.5).min(MAX_POS_CORRECT);
@@ -401,8 +439,8 @@ fn solve_min_length(masses: &mut [PointMass], springs: &[Spring]) {
         masses[a].pos.y -= push * uy;
         masses[b].pos.x += push * ux;
         masses[b].pos.y += push * uy;
-        let vrel = (masses[b].vel.x - masses[a].vel.x) * ux
-            + (masses[b].vel.y - masses[a].vel.y) * uy;
+        let vrel =
+            (masses[b].vel.x - masses[a].vel.x) * ux + (masses[b].vel.y - masses[a].vel.y) * uy;
         if vrel < 0.0 {
             masses[a].vel.x += vrel * 0.5 * ux;
             masses[a].vel.y += vrel * 0.5 * uy;
@@ -439,7 +477,9 @@ fn solve_inversions(masses: &mut [PointMass], cells: &[[usize; 4]]) {
             // For a properly-wound (CCW) corner this cross product is
             // negative; positive ⇒ the corner folded across prev→next.
             let cross = ax * (cur.y - prev.y) - ay * (cur.x - prev.x);
-            if cross <= 0.0 { continue; }
+            if cross <= 0.0 {
+                continue;
+            }
             let depth = cross / alen;
             let step = ((depth + 0.02) * 0.5).min(UNFOLD_STEP);
             // Move against the cross-product gradient (direction (ay, -ax)),
@@ -472,8 +512,14 @@ pub(crate) fn point_quad_depth(p: Vec2, quad: &[Vec2; 4]) -> Option<(f32, (f32, 
         // Interior of a CCW quad lies to the left of every edge.
         let (nx, ny) = (-ey / el, ex / el);
         let d = (p.x - a.x) * nx + (p.y - a.y) * ny;
-        if d < 0.0 { return None; }
-        if d < best { best = d; best_n = (nx, ny); best_e = e; }
+        if d < 0.0 {
+            return None;
+        }
+        if d < best {
+            best = d;
+            best_n = (nx, ny);
+            best_e = e;
+        }
     }
     Some((best, best_n, best_e))
 }
@@ -490,14 +536,26 @@ fn closest_seg_seg(p1: Vec2, q1: Vec2, p2: Vec2, q2: Vec2) -> (f32, f32, Vec2, V
     let c = d1.x * r.x + d1.y * r.y;
     let b = d1.x * d2.x + d1.y * d2.y;
     let denom = a * e - b * b;
-    let mut s = if denom > 1e-12 { ((b * f - c * e) / denom).clamp(0.0, 1.0) } else { 0.0 };
+    let mut s = if denom > 1e-12 {
+        ((b * f - c * e) / denom).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     let mut t = if e > 1e-12 { (b * s + f) / e } else { 0.0 };
     if t < 0.0 {
         t = 0.0;
-        s = if a > 1e-12 { (-c / a).clamp(0.0, 1.0) } else { 0.0 };
+        s = if a > 1e-12 {
+            (-c / a).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
     } else if t > 1.0 {
         t = 1.0;
-        s = if a > 1e-12 { ((b - c) / a).clamp(0.0, 1.0) } else { 0.0 };
+        s = if a > 1e-12 {
+            ((b - c) / a).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
     }
     let c1 = Vec2::new(p1.x + d1.x * s, p1.y + d1.y * s);
     let c2 = Vec2::new(p2.x + d2.x * s, p2.y + d2.y * s);
@@ -512,8 +570,18 @@ fn closest_seg_seg(p1: Vec2, q1: Vec2, p2: Vec2, q2: Vec2) -> (f32, f32, Vec2, V
 fn solve_self_collision(masses: &mut [PointMass], cells: &[[usize; 4]], pairs: &[(usize, usize)]) {
     for _ in 0..2 {
         for &(ia, ib) in pairs {
-            let qa = [masses[cells[ia][0]].pos, masses[cells[ia][1]].pos, masses[cells[ia][2]].pos, masses[cells[ia][3]].pos];
-            let qb = [masses[cells[ib][0]].pos, masses[cells[ib][1]].pos, masses[cells[ib][2]].pos, masses[cells[ib][3]].pos];
+            let qa = [
+                masses[cells[ia][0]].pos,
+                masses[cells[ia][1]].pos,
+                masses[cells[ia][2]].pos,
+                masses[cells[ia][3]].pos,
+            ];
+            let qb = [
+                masses[cells[ib][0]].pos,
+                masses[cells[ib][1]].pos,
+                masses[cells[ib][2]].pos,
+                masses[cells[ib][3]].pos,
+            ];
             // AABB broadphase, inflated by the skin.
             let aabb = |q: &[Vec2; 4]| {
                 let mut lo = Vec2::new(f32::MAX, f32::MAX);
@@ -540,14 +608,17 @@ fn solve_self_collision(masses: &mut [PointMass], cells: &[[usize; 4]], pairs: &
             for (cell_idx, quad) in [(ia, &qb), (ib, &qa)] {
                 for &mi in &cells[cell_idx] {
                     let quad_idx = if cell_idx == ia { ib } else { ia };
-                    let Some((depth, (nx, ny), e)) = point_quad_depth(masses[mi].pos, quad) else { continue; };
+                    let Some((depth, (nx, ny), e)) = point_quad_depth(masses[mi].pos, quad) else {
+                        continue;
+                    };
                     let (e1, e2) = (cells[quad_idx][e], cells[quad_idx][(e + 1) % 4]);
                     let a = masses[e1].pos;
                     let b = masses[e2].pos;
                     let ex = b.x - a.x;
                     let ey = b.y - a.y;
                     let el2 = (ex * ex + ey * ey).max(1e-9);
-                    let t = (((masses[mi].pos.x - a.x) * ex + (masses[mi].pos.y - a.y) * ey) / el2).clamp(0.0, 1.0);
+                    let t = (((masses[mi].pos.x - a.x) * ex + (masses[mi].pos.y - a.y) * ey) / el2)
+                        .clamp(0.0, 1.0);
                     let w = [1.0, 1.0 - t, t]; // vertex, edge endpoints
                     let sumw = w[0] * w[0] + w[1] * w[1] + w[2] * w[2];
                     let corr = ((depth + SELF_COLLIDE_SKIN).min(MAX_POS_CORRECT)) / sumw;
@@ -563,7 +634,8 @@ fn solve_self_collision(masses: &mut [PointMass], cells: &[[usize; 4]], pairs: &
                     );
                     // Relative approach along the inward normal → remove it,
                     // again split so total momentum is unchanged.
-                    let vrel = (masses[mi].vel.x - v_edge.x) * nx + (masses[mi].vel.y - v_edge.y) * ny;
+                    let vrel =
+                        (masses[mi].vel.x - v_edge.x) * nx + (masses[mi].vel.y - v_edge.y) * ny;
                     if vrel > 0.0 {
                         let j = vrel / sumw;
                         masses[mi].vel.x -= nx * j * w[0];
@@ -581,12 +653,17 @@ fn solve_self_collision(masses: &mut [PointMass], cells: &[[usize; 4]], pairs: &
                     let (a1, a2) = (cells[ia][e1], cells[ia][(e1 + 1) % 4]);
                     let (b1, b2) = (cells[ib][e2], cells[ib][(e2 + 1) % 4]);
                     let (sp, tp, c1, c2) = closest_seg_seg(
-                        masses[a1].pos, masses[a2].pos, masses[b1].pos, masses[b2].pos,
+                        masses[a1].pos,
+                        masses[a2].pos,
+                        masses[b1].pos,
+                        masses[b2].pos,
                     );
                     let dx = c2.x - c1.x;
                     let dy = c2.y - c1.y;
                     let dist = (dx * dx + dy * dy).sqrt();
-                    if dist >= SELF_COLLIDE_SKIN { continue; }
+                    if dist >= SELF_COLLIDE_SKIN {
+                        continue;
+                    }
                     let (ux, uy) = if dist > 1e-6 {
                         (dx / dist, dy / dist)
                     } else {
@@ -598,9 +675,16 @@ fn solve_self_collision(masses: &mut [PointMass], cells: &[[usize; 4]], pairs: &
                     let wa = [1.0 - sp, sp];
                     let wb = [1.0 - tp, tp];
                     let sumw = wa[0] * wa[0] + wa[1] * wa[1] + wb[0] * wb[0] + wb[1] * wb[1];
-                    if sumw < 1e-9 { continue; }
+                    if sumw < 1e-9 {
+                        continue;
+                    }
                     let corr = ((SELF_COLLIDE_SKIN - dist).min(MAX_POS_CORRECT)) / sumw;
-                    for (mi, w, sign) in [(a1, wa[0], -1.0), (a2, wa[1], -1.0), (b1, wb[0], 1.0), (b2, wb[1], 1.0)] {
+                    for (mi, w, sign) in [
+                        (a1, wa[0], -1.0),
+                        (a2, wa[1], -1.0),
+                        (b1, wb[0], 1.0),
+                        (b2, wb[1], 1.0),
+                    ] {
                         masses[mi].pos.x += sign * ux * corr * w;
                         masses[mi].pos.y += sign * uy * corr * w;
                     }
@@ -615,7 +699,12 @@ fn solve_self_collision(masses: &mut [PointMass], cells: &[[usize; 4]], pairs: &
                     let vrel = (vpb.x - vpa.x) * ux + (vpb.y - vpa.y) * uy;
                     if vrel < 0.0 {
                         let imp = vrel / sumw;
-                        for (mi, w, sign) in [(a1, wa[0], 1.0), (a2, wa[1], 1.0), (b1, wb[0], -1.0), (b2, wb[1], -1.0)] {
+                        for (mi, w, sign) in [
+                            (a1, wa[0], 1.0),
+                            (a2, wa[1], 1.0),
+                            (b1, wb[0], -1.0),
+                            (b2, wb[1], -1.0),
+                        ] {
                             masses[mi].vel.x += sign * imp * w * ux;
                             masses[mi].vel.y += sign * imp * w * uy;
                         }
@@ -657,7 +746,11 @@ fn apply_obstacles(masses: &mut [PointMass], obstacles: &[Obstacle]) {
             // Bottom epsilon: a mass resting on the ground penetrates it by
             // a few millimetres, which would place it *below* the box base
             // and let it walk through the box's footprint at ground level.
-            if m.pos.x <= o.x_min || m.pos.x >= o.x_max || m.pos.y <= o.y_min - 0.05 || m.pos.y >= o.y_max {
+            if m.pos.x <= o.x_min
+                || m.pos.x >= o.x_max
+                || m.pos.y <= o.y_min - 0.05
+                || m.pos.y >= o.y_max
+            {
                 continue;
             }
             let d_left = m.pos.x - o.x_min;
@@ -715,11 +808,30 @@ fn integrate_and_clamp(masses: &mut [PointMass], ground: &Ground, nan_seen: &mut
             .unwrap_or(false);
         if up_facing {
             let y_min = ground.height(m.pos.x) - 0.5;
-            if m.pos.y < y_min { m.pos.y = y_min; if m.vel.y < 0.0 { m.vel.y = 0.0; } }
+            if m.pos.y < y_min {
+                m.pos.y = y_min;
+                if m.vel.y < 0.0 {
+                    m.vel.y = 0.0;
+                }
+            }
         }
-        if m.pos.x > X_BOUND { m.pos.x = X_BOUND; if m.vel.x > 0.0 { m.vel.x = 0.0; } }
-        if m.pos.x < -X_BOUND { m.pos.x = -X_BOUND; if m.vel.x < 0.0 { m.vel.x = 0.0; } }
-        if !m.pos.x.is_finite() || !m.pos.y.is_finite() || !m.vel.x.is_finite() || !m.vel.y.is_finite() {
+        if m.pos.x > X_BOUND {
+            m.pos.x = X_BOUND;
+            if m.vel.x > 0.0 {
+                m.vel.x = 0.0;
+            }
+        }
+        if m.pos.x < -X_BOUND {
+            m.pos.x = -X_BOUND;
+            if m.vel.x < 0.0 {
+                m.vel.x = 0.0;
+            }
+        }
+        if !m.pos.x.is_finite()
+            || !m.pos.y.is_finite()
+            || !m.vel.x.is_finite()
+            || !m.vel.y.is_finite()
+        {
             m.pos = Vec2::ZERO;
             m.vel = Vec2::ZERO;
             *nan_seen = true;
@@ -746,11 +858,7 @@ impl World {
 
     /// Convenience: simulate for `secs` seconds with the given per-actuator
     /// ΔL offset callback. Returns the final COM x.
-    pub fn simulate<F: FnMut(usize, f32) -> f32>(
-        &mut self,
-        secs: f32,
-        mut offset_fn: F,
-    ) -> Vec2 {
+    pub fn simulate<F: FnMut(usize, f32) -> f32>(&mut self, secs: f32, mut offset_fn: F) -> Vec2 {
         let n_act = self.morph.actuators().len();
         let mut offsets = vec![0.0_f32; n_act];
         let frames = (secs * 60.0).round() as i32;

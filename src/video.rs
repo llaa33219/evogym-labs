@@ -27,8 +27,8 @@ use std::process::{Command, Stdio};
 use rayon::prelude::*;
 
 use crate::evolution::{GenerationRecord, History};
-use crate::physics::{World, DT, SUBSTEPS_PER_FRAME};
-use crate::render::{draw_robot_positions, draw_terrain, Camera, FrameBuffer, FRAME_H, FRAME_W};
+use crate::physics::{DT, SUBSTEPS_PER_FRAME, World};
+use crate::render::{Camera, FRAME_H, FRAME_W, FrameBuffer, draw_robot_positions, draw_terrain};
 use crate::tasks::terrain_for;
 use crate::text::draw_overlay;
 
@@ -83,17 +83,28 @@ fn encode_clip(frames: &[u8], path: &Path) -> Result<(), VideoError> {
     let mut child = Command::new("ffmpeg")
         .args([
             "-y",
-            "-f", "rawvideo",
-            "-pix_fmt", "rgb24",
-            "-s", &format!("{FRAME_W}x{FRAME_H}"),
-            "-r", "60",
-            "-i", "-",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-crf", "18",
-            "-movflags", "+faststart",
-            "-loglevel", "error",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-s",
+            &format!("{FRAME_W}x{FRAME_H}"),
+            "-r",
+            "60",
+            "-i",
+            "-",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "18",
+            "-movflags",
+            "+faststart",
+            "-loglevel",
+            "error",
         ])
         .arg(path)
         .stdin(Stdio::piped())
@@ -122,7 +133,9 @@ fn encode_clip(frames: &[u8], path: &Path) -> Result<(), VideoError> {
 
 /// Concatenate per-clip mp4s into a final output.
 fn concat_clips(clips: &[PathBuf], out: &Path) -> Result<(), VideoError> {
-    if clips.is_empty() { return Err(VideoError::EmptyPlan); }
+    if clips.is_empty() {
+        return Err(VideoError::EmptyPlan);
+    }
     if clips.len() == 1 {
         fs::copy(&clips[0], out)?;
         return Ok(());
@@ -137,15 +150,24 @@ fn concat_clips(clips: &[PathBuf], out: &Path) -> Result<(), VideoError> {
     let status = Command::new("ffmpeg")
         .args([
             "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", list_path.to_str().unwrap_or("clips.txt"),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-crf", "18",
-            "-movflags", "+faststart",
-            "-loglevel", "error",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            list_path.to_str().unwrap_or("clips.txt"),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-crf",
+            "18",
+            "-movflags",
+            "+faststart",
+            "-loglevel",
+            "error",
         ])
         .arg(out)
         .stdout(Stdio::null())
@@ -170,12 +192,20 @@ fn concat_clips(clips: &[PathBuf], out: &Path) -> Result<(), VideoError> {
 
 /// Simulate one generation's best individual and render every frame to a
 /// contiguous raw-RGB byte stream.
-fn render_clip(record: &GenerationRecord, seconds: f32, task_kind: crate::tasks::TaskKind, clip_is_final: bool) -> Result<Vec<u8>, VideoError> {
-    if !seconds.is_finite() || seconds <= 0.0 { return Err(VideoError::InvalidSeconds(seconds)); }
+fn render_clip(
+    record: &GenerationRecord,
+    seconds: f32,
+    task_kind: crate::tasks::TaskKind,
+    clip_is_final: bool,
+) -> Result<Vec<u8>, VideoError> {
+    if !seconds.is_finite() || seconds <= 0.0 {
+        return Err(VideoError::InvalidSeconds(seconds));
+    }
     if record.genome.morph.w == 0 || record.genome.morph.h == 0 {
         return Err(VideoError::InvalidSeconds(seconds));
     }
-    let (ground, obstacles) = terrain_for(task_kind, (record.genome.morph.w, record.genome.morph.h));
+    let (ground, obstacles) =
+        terrain_for(task_kind, (record.genome.morph.w, record.genome.morph.h));
     let mut world = World::new(record.genome.morph.clone()).with_terrain(ground, obstacles);
     world.reset();
     let n_act = record.genome.morph.actuators().len();
@@ -183,7 +213,9 @@ fn render_clip(record: &GenerationRecord, seconds: f32, task_kind: crate::tasks:
     let mut cam = Camera::for_robot(record.genome.morph.w, record.genome.morph.h);
 
     let total_frames = (seconds * 60.0).round() as usize;
-    if total_frames == 0 { return Err(VideoError::InvalidSeconds(seconds)); }
+    if total_frames == 0 {
+        return Err(VideoError::InvalidSeconds(seconds));
+    }
 
     let mut t = 0.0_f32;
 
@@ -214,13 +246,16 @@ fn render_clip(record: &GenerationRecord, seconds: f32, task_kind: crate::tasks:
 
     // Pass 2: rasterize frames in parallel, then join into one stream.
     let frame_bytes = FRAME_W * FRAME_H * 3;
-    let frames: Vec<Vec<u8>> = snaps.par_iter().map(|snap| {
-        let mut buf = FrameBuffer::new(FRAME_W, FRAME_H);
-        draw_terrain(&mut buf, &snap.cam, &world.ground, &world.obstacles);
-        draw_robot_positions(&mut buf, &snap.cam, &world, &snap.positions, &snap.offsets);
-        draw_overlay(&mut buf, record.generation, record.fitness, clip_is_final);
-        buf.rgb
-    }).collect();
+    let frames: Vec<Vec<u8>> = snaps
+        .par_iter()
+        .map(|snap| {
+            let mut buf = FrameBuffer::new(FRAME_W, FRAME_H);
+            draw_terrain(&mut buf, &snap.cam, &world.ground, &world.obstacles);
+            draw_robot_positions(&mut buf, &snap.cam, &world, &snap.positions, &snap.offsets);
+            draw_overlay(&mut buf, record.generation, record.fitness, clip_is_final);
+            buf.rgb
+        })
+        .collect();
     let mut all_bytes: Vec<u8> = Vec::with_capacity(total_frames * frame_bytes);
     for f in &frames {
         all_bytes.extend_from_slice(f);
@@ -238,11 +273,17 @@ pub fn render_plan(
     task_kind: crate::tasks::TaskKind,
     out_path: &Path,
 ) -> Result<VideoOutput, VideoError> {
-    if plan.is_empty() { return Err(VideoError::EmptyPlan); }
-    for c in plan {
-        if !c.seconds.is_finite() || c.seconds <= 0.0 { return Err(VideoError::InvalidSeconds(c.seconds)); }
+    if plan.is_empty() {
+        return Err(VideoError::EmptyPlan);
     }
-    if !ffmpeg_available() { return Err(VideoError::FfmpegMissing); }
+    for c in plan {
+        if !c.seconds.is_finite() || c.seconds <= 0.0 {
+            return Err(VideoError::InvalidSeconds(c.seconds));
+        }
+    }
+    if !ffmpeg_available() {
+        return Err(VideoError::FfmpegMissing);
+    }
 
     // Collect records up front so we can detect missing generations before
     // spawning any work.
@@ -261,7 +302,10 @@ pub fn render_plan(
         .unwrap_or_else(|| Path::new("."))
         .join(format!(
             ".{}.clips",
-            out_path.file_name().and_then(|s| s.to_str()).unwrap_or("evogym")
+            out_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("evogym")
         ));
     fs::create_dir_all(&clips_dir)?;
 
@@ -298,11 +342,15 @@ pub fn render_plan(
         .collect();
 
     // Write final output.
-    if let Some(parent) = out_path.parent() { fs::create_dir_all(parent)?; }
+    if let Some(parent) = out_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
     concat_clips(&ordered_files, out_path)?;
 
     // Best-effort cleanup of temp clips.
-    for (_, p) in &clip_files { let _ = fs::remove_file(p); }
+    for (_, p) in &clip_files {
+        let _ = fs::remove_file(p);
+    }
     let _ = fs::remove_dir(&clips_dir);
 
     Ok(VideoOutput {
@@ -317,25 +365,36 @@ pub fn render_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evolution::Genome;
     use crate::controller::Controller;
-    use crate::voxel::{Cell, Morphology};
+    use crate::evolution::Genome;
     use crate::tasks::TaskKind;
+    use crate::voxel::{Cell, Morphology};
 
     fn tiny_history() -> History {
         let mut m = Morphology::new(2, 2);
-        for cy in 0..2 { for cx in 0..2 { m.set(cx, cy, Cell::Soft); } }
+        for cy in 0..2 {
+            for cx in 0..2 {
+                m.set(cx, cy, Cell::Soft);
+            }
+        }
         m.set(0, 0, Cell::ActH);
         let genome = Genome::new(m, Controller::zeros(1));
         let mut h = History::default();
-        h.records.push(GenerationRecord { generation: 0, fitness: 0.5, genome });
+        h.records.push(GenerationRecord {
+            generation: 0,
+            fitness: 0.5,
+            genome,
+        });
         h
     }
 
     #[test]
     fn ffmpeg_is_reachable() {
         // We expect ffmpeg to be installed in the verification env.
-        assert!(ffmpeg_available(), "ffmpeg must be on PATH for tests to pass");
+        assert!(
+            ffmpeg_available(),
+            "ffmpeg must be on PATH for tests to pass"
+        );
     }
 
     #[test]
@@ -354,10 +413,28 @@ mod tests {
         let bytes = render_clip(&h.records[0], 0.0, TaskKind::Walker, false);
         assert!(matches!(bytes, Err(VideoError::InvalidSeconds(_))));
         // Plan with zero seconds also rejected.
-        let r = render_plan(&[ClipSpec { generation: 0, seconds: 0.0, is_final: false }], &h, TaskKind::Walker, Path::new("/tmp/x.mp4"));
+        let r = render_plan(
+            &[ClipSpec {
+                generation: 0,
+                seconds: 0.0,
+                is_final: false,
+            }],
+            &h,
+            TaskKind::Walker,
+            Path::new("/tmp/x.mp4"),
+        );
         assert!(matches!(r, Err(VideoError::InvalidSeconds(_))));
         // missing generation still surfaces as an error before encoding.
-        let r = render_plan(&[ClipSpec { generation: 99, seconds: 1.0, is_final: false }], &h, TaskKind::Walker, Path::new("/tmp/x.mp4"));
+        let r = render_plan(
+            &[ClipSpec {
+                generation: 99,
+                seconds: 1.0,
+                is_final: false,
+            }],
+            &h,
+            TaskKind::Walker,
+            Path::new("/tmp/x.mp4"),
+        );
         assert!(matches!(r, Err(VideoError::MissingGeneration(_))));
     }
 }

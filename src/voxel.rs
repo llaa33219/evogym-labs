@@ -28,19 +28,10 @@ pub enum Cell {
 }
 
 impl Cell {
-    pub const ALL: [Cell; 5] = [
-        Cell::Empty,
-        Cell::Rigid,
-        Cell::Soft,
-        Cell::ActH,
-        Cell::ActV,
-    ];
+    pub const ALL: [Cell; 5] = [Cell::Empty, Cell::Rigid, Cell::Soft, Cell::ActH, Cell::ActV];
 
     pub fn is_solid(self) -> bool {
-        matches!(
-            self,
-            Cell::Rigid | Cell::Soft | Cell::ActH | Cell::ActV
-        )
+        matches!(self, Cell::Rigid | Cell::Soft | Cell::ActH | Cell::ActV)
     }
 
     pub fn is_actuator(self) -> bool {
@@ -69,7 +60,9 @@ impl Cell {
 }
 
 impl fmt::Display for Cell {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(self.label()) }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
 }
 
 /// Edge / diagonal stiffness bucket.
@@ -97,13 +90,24 @@ pub struct Morphology {
 impl Morphology {
     pub fn new(w: u8, h: u8) -> Self {
         let len = (w as usize) * (h as usize);
-        Self { w, h, cells: vec![Cell::Empty; len], colors: vec![None; len] }
+        Self {
+            w,
+            h,
+            cells: vec![Cell::Empty; len],
+            colors: vec![None; len],
+        }
     }
 
-    pub fn idx(&self, cx: u8, cy: u8) -> usize { (cy as usize) * (self.w as usize) + (cx as usize) }
+    pub fn idx(&self, cx: u8, cy: u8) -> usize {
+        (cy as usize) * (self.w as usize) + (cx as usize)
+    }
 
     pub fn get(&self, cx: u8, cy: u8) -> Cell {
-        if cx >= self.w || cy >= self.h { Cell::Empty } else { self.cells[self.idx(cx, cy)] }
+        if cx >= self.w || cy >= self.h {
+            Cell::Empty
+        } else {
+            self.cells[self.idx(cx, cy)]
+        }
     }
 
     pub fn set(&mut self, cx: u8, cy: u8, c: Cell) {
@@ -114,7 +118,11 @@ impl Morphology {
     }
 
     pub fn color_of(&self, cx: u8, cy: u8) -> Option<[u8; 3]> {
-        if cx >= self.w || cy >= self.h { None } else { self.colors[self.idx(cx, cy)] }
+        if cx >= self.w || cy >= self.h {
+            None
+        } else {
+            self.colors[self.idx(cx, cy)]
+        }
     }
 
     pub fn set_color(&mut self, cx: u8, cy: u8, color: Option<[u8; 3]>) {
@@ -137,7 +145,9 @@ impl Morphology {
         for cy in 0..self.h {
             for cx in 0..self.w {
                 let c = self.get(cx, cy);
-                if c.is_actuator() { out.push((cx, cy, c)); }
+                if c.is_actuator() {
+                    out.push((cx, cy, c));
+                }
             }
         }
         out
@@ -178,9 +188,15 @@ impl fmt::Display for MorphologyError {
 impl std::error::Error for MorphologyError {}
 
 pub fn validate(m: &Morphology) -> Result<(), MorphologyError> {
-    if m.w > 32 || m.h > 32 { return Err(MorphologyError::TooLarge); }
-    if m.n_solid() == 0 { return Err(MorphologyError::Empty); }
-    if m.actuators().is_empty() { return Err(MorphologyError::NoActuator); }
+    if m.w > 32 || m.h > 32 {
+        return Err(MorphologyError::TooLarge);
+    }
+    if m.n_solid() == 0 {
+        return Err(MorphologyError::Empty);
+    }
+    if m.actuators().is_empty() {
+        return Err(MorphologyError::NoActuator);
+    }
 
     // BFS from the first solid cell we encounter in bottom-up order and ensure
     // every solid cell is reachable.
@@ -196,10 +212,14 @@ pub fn validate(m: &Morphology) -> Result<(), MorphologyError> {
             }
         }
     }
-    if !started { return Err(MorphologyError::Empty); }
+    if !started {
+        return Err(MorphologyError::Empty);
+    }
     while let Some((cx, cy)) = stack.pop() {
         let i = m.idx(cx, cy);
-        if seen[i] { continue; }
+        if seen[i] {
+            continue;
+        }
         seen[i] = true;
         let w = m.w;
         let h = m.h;
@@ -217,13 +237,19 @@ pub fn validate(m: &Morphology) -> Result<(), MorphologyError> {
         try_push(&mut stack, cx as i16, cy as i16 + 1);
     }
     for (i, c) in m.cells.iter().enumerate() {
-        if c.is_solid() && !seen[i] { return Err(MorphologyError::Disconnected); }
+        if c.is_solid() && !seen[i] {
+            return Err(MorphologyError::Disconnected);
+        }
     }
     Ok(())
 }
 
-fn self_w(m: &Morphology) -> u8 { m.w }
-fn self_h(m: &Morphology) -> u8 { m.h }
+fn self_w(m: &Morphology) -> u8 {
+    m.w
+}
+fn self_h(m: &Morphology) -> u8 {
+    m.h
+}
 
 #[cfg(test)]
 mod tests {
@@ -231,9 +257,15 @@ mod tests {
 
     fn filled_with_actuator() -> Morphology {
         let mut m = Morphology::new(3, 3);
-        for cy in 0..3 { for cx in 0..3 {
-            if (cx, cy) == (1, 1) { m.set(cx, cy, Cell::ActV); } else { m.set(cx, cy, Cell::Rigid); }
-        }}
+        for cy in 0..3 {
+            for cx in 0..3 {
+                if (cx, cy) == (1, 1) {
+                    m.set(cx, cy, Cell::ActV);
+                } else {
+                    m.set(cx, cy, Cell::Rigid);
+                }
+            }
+        }
         m
     }
 
